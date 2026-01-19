@@ -1,213 +1,321 @@
 /**
- * Choose Your Own Adventure - Main Entry Point
+ * Choose Your Own Adventure - AI-Powered Edition
  */
 
 import './styles/main.css';
-import { StoryEngine } from './engine/StoryEngine';
-import { storyList, getStory } from './stories';
-import type { StoryNode } from './engine/types';
+import { api, type StoryNode, type StoryData } from './api/client';
+
+const DEFAULT_STORY = 'dragon-adventure';
 
 class App {
-  private engine: StoryEngine | null = null;
   private container: HTMLElement;
+  private storyData: StoryData | null = null;
+  private currentNodeId: string = 'start';
+  private history: string[] = [];
+  private nodesMap: Map<string, StoryNode> = new Map();
+  private isLoading: boolean = false;
 
   constructor() {
     this.container = document.getElementById('app')!;
     this.init();
   }
 
-  private init(): void {
-    // Check for shared state in URL hash
+  private async init(): Promise<void> {
+    // Check for node ID in URL hash
     const hash = window.location.hash.slice(1);
     if (hash) {
-      this.loadFromHash(hash);
-    } else {
-      this.showStorySelection();
+      this.currentNodeId = hash;
     }
 
     // Listen for hash changes
     window.addEventListener('hashchange', () => {
       const newHash = window.location.hash.slice(1);
-      if (newHash) {
-        this.loadFromHash(newHash);
+      if (newHash && newHash !== this.currentNodeId) {
+        this.currentNodeId = newHash;
+        this.renderCurrentNode();
       }
     });
+
+    await this.loadStory(DEFAULT_STORY);
   }
 
-  private loadFromHash(hash: string): void {
+  private async loadStory(storyId: string): Promise<void> {
+    this.showLoading('Loading story...');
+
     try {
-      const data = JSON.parse(atob(hash));
-      const story = getStory(data.s);
-      if (story) {
-        this.startStory(data.s, true);
-        this.engine?.importFromHash(hash);
-      } else {
-        this.showStorySelection();
+      this.storyData = await api.getStory(storyId);
+      this.nodesMap.clear();
+
+      for (const node of this.storyData.nodes) {
+        this.nodesMap.set(node.id, node);
       }
-    } catch {
-      this.showStorySelection();
+
+      // Initialize history with start node
+      if (!this.history.length) {
+        this.history = [this.storyData.meta.startNodeId];
+        this.currentNodeId = this.storyData.meta.startNodeId;
+      }
+
+      this.renderCurrentNode();
+    } catch (error) {
+      console.error('Failed to load story:', error);
+      this.showError('Failed to load story. Please try again.');
     }
   }
 
-  private showStorySelection(): void {
+  private getCurrentNode(): StoryNode | undefined {
+    return this.nodesMap.get(this.currentNodeId);
+  }
+
+  private async renderCurrentNode(): Promise<void> {
+    const node = this.getCurrentNode();
+
+    if (!node) {
+      this.showError('Story node not found');
+      return;
+    }
+
+    // Update URL
+    window.location.hash = node.id;
+
+    // Render the node
     this.container.innerHTML = `
-      <div class="header">
-        <h1>Choose Your Own Adventure</h1>
-        <p>Select a story to begin your journey</p>
+      <nav class="nav">
+        <div class="nav-left">
+          <button class="btn btn-secondary" id="back-btn" ${this.history.length <= 1 ? 'disabled' : ''}>
+            ← Back
+          </button>
+        </div>
+        <div class="nav-right">
+          <button class="btn btn-secondary" id="share-btn">Share</button>
+          <button class="btn btn-secondary" id="home-btn">Restart</button>
+        </div>
+      </nav>
+
+      <div class="story-card">
+        <h2 class="fire-effect">${node.title}</h2>
+        <div class="story-content">
+          ${this.formatContent(node.content)}
+        </div>
+
+        <div id="choices-container">
+          ${this.renderLoadingChoices()}
+        </div>
+
+        ${this.renderBranches(node)}
       </div>
-      <div class="story-select">
-        ${storyList.map(story => `
-          <div class="story-option" data-story-id="${story.id}">
-            <h3>${story.title}</h3>
-            <p>${story.description}</p>
-            <span class="story-theme">${story.theme}</span>
-          </div>
-        `).join('')}
-      </div>
-      ${this.renderSavedGames()}
     `;
 
-    // Add click handlers for story selection
-    this.container.querySelectorAll('.story-option').forEach(el => {
-      el.addEventListener('click', () => {
-        const storyId = (el as HTMLElement).dataset.storyId!;
-        this.startStory(storyId);
+    this.bindEventHandlers();
+
+    // Load AI options if not already generated
+    if (node.generatedOptions.length === 0) {
+      await this.loadOptions(node);
+    } else {
+      this.renderChoices(node.generatedOptions, node.childNodeIds);
+    }
+  }
+
+  private async loadOptions(node: StoryNode): Promise<void> {
+    const container = document.getElementById('choices-container');
+    if (!container) return;
+
+    try {
+      const result = await api.generateOptions(
+        this.storyData!.meta.id,
+        node.id
+      );
+
+      if (result.error) {
+        console.warn('Option generation warning:', result.error);
+      }
+
+      // Update local node data
+      node.generatedOptions = result.options;
+
+      this.renderChoices(result.options, node.childNodeIds);
+    } catch (error) {
+      console.error('Failed to generate options:', error);
+      container.innerHTML = `
+        <div class="error-message">
+          <p>Failed to generate options. Please try again.</p>
+          <button class="btn" id="retry-options">Retry</button>
+        </div>
+      `;
+      container.querySelector('#retry-options')?.addEventListener('click', () => {
+        container.innerHTML = this.renderLoadingChoices();
+        this.loadOptions(node);
+      });
+    }
+  }
+
+  private renderLoadingChoices(): string {
+    return `
+      <div class="choices loading">
+        <div class="choice-skeleton">
+          <div class="skeleton-text"></div>
+          <div class="skeleton-shimmer"></div>
+        </div>
+        <div class="choice-skeleton">
+          <div class="skeleton-text"></div>
+          <div class="skeleton-shimmer"></div>
+        </div>
+        <p class="loading-hint">The AI is crafting your choices...</p>
+      </div>
+    `;
+  }
+
+  private renderChoices(options: string[], _existingChildIds: string[]): void {
+    const container = document.getElementById('choices-container');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="choices">
+        <h3 class="choices-header">What will you do?</h3>
+
+        ${options.map((option) => `
+          <button class="choice-btn ai-choice" data-option="${this.escapeHtml(option)}">
+            <span class="choice-badge">AI</span>
+            ${this.escapeHtml(option)}
+          </button>
+        `).join('')}
+
+        <div class="custom-choice">
+          <input
+            type="text"
+            id="custom-option"
+            placeholder="Or write your own adventure..."
+            maxlength="200"
+          />
+          <button class="btn" id="submit-custom">Go</button>
+        </div>
+      </div>
+    `;
+
+    // Bind choice handlers
+    container.querySelectorAll('.ai-choice').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const option = (btn as HTMLElement).dataset.option!;
+        this.chooseOption(option);
       });
     });
 
-    // Add click handlers for saved games
-    this.container.querySelectorAll('.saved-game').forEach(el => {
-      el.addEventListener('click', () => {
-        const storyId = (el as HTMLElement).dataset.storyId!;
-        const slot = (el as HTMLElement).dataset.slot!;
-        this.startStory(storyId);
-        this.engine?.load(slot);
-      });
+    // Custom option handler
+    const customInput = container.querySelector('#custom-option') as HTMLInputElement;
+    const submitBtn = container.querySelector('#submit-custom');
+
+    submitBtn?.addEventListener('click', () => {
+      const option = customInput.value.trim();
+      if (option) {
+        this.chooseOption(option);
+      }
+    });
+
+    customInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const option = customInput.value.trim();
+        if (option) {
+          this.chooseOption(option);
+        }
+      }
     });
   }
 
-  private renderSavedGames(): string {
-    const saves = StoryEngine.loadAllSaves();
-    const entries = Object.entries(saves);
+  private async chooseOption(option: string): Promise<void> {
+    if (this.isLoading) return;
+    this.isLoading = true;
 
-    if (entries.length === 0) return '';
+    const container = document.getElementById('choices-container');
+    if (!container) return;
+
+    // Show loading state
+    container.innerHTML = `
+      <div class="generating">
+        <div class="loading-spinner"></div>
+        <p>Continuing your adventure...</p>
+        <p class="loading-hint">"${this.escapeHtml(option)}"</p>
+      </div>
+    `;
+
+    try {
+      const result = await api.continueStory(
+        this.storyData!.meta.id,
+        this.currentNodeId,
+        option
+      );
+
+      if (result.error) {
+        throw new Error(result.error);
+      }
+
+      // Add new node to our map
+      this.nodesMap.set(result.node.id, result.node);
+
+      // Update parent node's children
+      const parentNode = this.getCurrentNode();
+      if (parentNode && !parentNode.childNodeIds.includes(result.node.id)) {
+        parentNode.childNodeIds.push(result.node.id);
+      }
+
+      // Navigate to new node
+      this.history.push(result.node.id);
+      this.currentNodeId = result.node.id;
+      this.isLoading = false;
+
+      await this.renderCurrentNode();
+    } catch (error) {
+      this.isLoading = false;
+      console.error('Failed to continue story:', error);
+
+      container.innerHTML = `
+        <div class="error-message">
+          <p>${error instanceof Error ? error.message : 'Failed to continue story'}</p>
+          <button class="btn" id="retry-continue">Try Again</button>
+        </div>
+      `;
+
+      container.querySelector('#retry-continue')?.addEventListener('click', () => {
+        this.chooseOption(option);
+      });
+    }
+  }
+
+  private renderBranches(node: StoryNode): string {
+    if (node.childNodeIds.length === 0) {
+      return '';
+    }
+
+    const branches = node.childNodeIds
+      .map(id => this.nodesMap.get(id))
+      .filter((n): n is StoryNode => n !== undefined);
+
+    if (branches.length === 0) {
+      return '';
+    }
 
     return `
-      <div class="story-card">
-        <h2>Continue Your Adventure</h2>
-        <div class="story-select">
-          ${entries.map(([slot, save]) => `
-            <div class="story-option saved-game" data-story-id="${save.state.storyId}" data-slot="${slot}">
-              <h3>${save.storyTitle}</h3>
-              <p>Saved: ${new Date(save.savedAt).toLocaleString()}</p>
-              <span class="story-theme">${slot}</span>
-            </div>
+      <div class="branches">
+        <h3 class="branches-header">Other adventurers chose:</h3>
+        <div class="branch-list">
+          ${branches.map(branch => `
+            <button class="branch-btn" data-node-id="${branch.id}">
+              <span class="branch-tagline">${this.escapeHtml(branch.tagline || branch.chosenOption || 'Continue')}</span>
+              <span class="branch-arrow">→</span>
+            </button>
           `).join('')}
         </div>
       </div>
     `;
   }
 
-  private startStory(storyId: string, skipClear: boolean = false): void {
-    const story = getStory(storyId);
-    if (!story) {
-      console.error(`Story not found: ${storyId}`);
-      return;
-    }
-
-    this.engine = new StoryEngine(story);
-    this.engine.subscribe((_state, node) => this.renderNode(node));
-
-    if (!skipClear) {
-      window.location.hash = '';
-    }
-
-    this.renderNode(this.engine.getCurrentNode());
-  }
-
-  private renderNode(node: StoryNode): void {
-    const isEnding = node.isEnding;
-    const endingClass = isEnding ? ` ending ${node.endingType || 'neutral'}` : '';
-    const progress = this.engine?.getProgress() || 0;
-
-    this.container.innerHTML = `
-      <nav class="nav">
-        <div class="nav-left">
-          <button class="btn btn-secondary" id="back-btn" ${(this.engine?.getState().history.length || 0) <= 1 ? 'disabled' : ''}>
-            ← Back
-          </button>
-        </div>
-        <div class="nav-right">
-          <button class="btn btn-secondary" id="share-btn">Share</button>
-          <button class="btn btn-secondary" id="save-btn">Save</button>
-          <button class="btn btn-secondary" id="home-btn">Stories</button>
-        </div>
-      </nav>
-
-      <div class="progress-bar">
-        <div class="progress-fill" style="width: ${progress}%"></div>
-      </div>
-
-      <div class="story-card${endingClass}">
-        <h2 class="fire-effect">${node.title}</h2>
-        <div class="story-content">
-          ${this.formatContent(node.content)}
-        </div>
-
-        ${isEnding ? this.renderEndingActions() : this.renderChoices()}
-      </div>
-    `;
-
-    // Bind event handlers
-    this.bindEventHandlers();
-  }
-
-  private formatContent(content: string): string {
-    return content
-      .split('\n\n')
-      .map(p => `<p>${p}</p>`)
-      .join('');
-  }
-
-  private renderChoices(): string {
-    const choices = this.engine?.getAvailableChoices() || [];
-
-    if (choices.length === 0) {
-      return '<p class="text-muted">No choices available...</p>';
-    }
-
-    return `
-      <div class="choices">
-        ${choices.map(choice => `
-          <button class="choice-btn" data-choice-id="${choice.id}">
-            ${choice.text}
-          </button>
-        `).join('')}
-      </div>
-    `;
-  }
-
-  private renderEndingActions(): string {
-    return `
-      <div class="actions">
-        <button class="btn" id="restart-btn">Play Again</button>
-        <button class="btn btn-secondary" id="home-btn-ending">Choose Another Story</button>
-      </div>
-    `;
-  }
-
   private bindEventHandlers(): void {
-    // Choice buttons
-    this.container.querySelectorAll('.choice-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const choiceId = (btn as HTMLElement).dataset.choiceId!;
-        this.engine?.makeChoice(choiceId);
-      });
-    });
-
     // Back button
     this.container.querySelector('#back-btn')?.addEventListener('click', () => {
-      this.engine?.goBack();
+      if (this.history.length > 1) {
+        this.history.pop();
+        this.currentNodeId = this.history[this.history.length - 1];
+        this.renderCurrentNode();
+      }
     });
 
     // Share button
@@ -215,38 +323,33 @@ class App {
       this.showShareModal();
     });
 
-    // Save button
-    this.container.querySelector('#save-btn')?.addEventListener('click', () => {
-      this.engine?.save('autosave');
-      this.showToast('Game saved!');
-    });
-
-    // Home button
+    // Home/Restart button
     this.container.querySelector('#home-btn')?.addEventListener('click', () => {
-      this.showStorySelection();
+      this.history = [this.storyData!.meta.startNodeId];
+      this.currentNodeId = this.storyData!.meta.startNodeId;
+      this.renderCurrentNode();
     });
 
-    // Restart button (for endings)
-    this.container.querySelector('#restart-btn')?.addEventListener('click', () => {
-      this.engine?.restart();
-    });
-
-    // Home button in ending
-    this.container.querySelector('#home-btn-ending')?.addEventListener('click', () => {
-      this.showStorySelection();
+    // Branch buttons
+    this.container.querySelectorAll('.branch-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const nodeId = (btn as HTMLElement).dataset.nodeId!;
+        this.history.push(nodeId);
+        this.currentNodeId = nodeId;
+        this.renderCurrentNode();
+      });
     });
   }
 
   private showShareModal(): void {
-    const hash = this.engine?.exportToHash() || '';
-    const shareUrl = `${window.location.origin}${window.location.pathname}#${hash}`;
+    const shareUrl = window.location.href;
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.innerHTML = `
       <div class="modal">
-        <h3>Share Your Progress</h3>
-        <p>Copy this link to share your current position in the story:</p>
+        <h3>Share This Moment</h3>
+        <p>Share this exact point in the story with others:</p>
         <input type="text" readonly value="${shareUrl}" id="share-url">
         <div class="actions">
           <button class="btn" id="copy-btn">Copy Link</button>
@@ -257,24 +360,20 @@ class App {
 
     document.body.appendChild(overlay);
 
-    // Select input on focus
     const input = overlay.querySelector('#share-url') as HTMLInputElement;
     input.focus();
     input.select();
 
-    // Copy button
     overlay.querySelector('#copy-btn')?.addEventListener('click', () => {
       navigator.clipboard.writeText(shareUrl);
       this.showToast('Link copied!');
       overlay.remove();
     });
 
-    // Close button
     overlay.querySelector('#close-modal')?.addEventListener('click', () => {
       overlay.remove();
     });
 
-    // Close on overlay click
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         overlay.remove();
@@ -282,29 +381,48 @@ class App {
     });
   }
 
+  private showLoading(message: string): void {
+    this.container.innerHTML = `
+      <div class="loading-screen">
+        <div class="loading-spinner"></div>
+        <p>${message}</p>
+      </div>
+    `;
+  }
+
+  private showError(message: string): void {
+    this.container.innerHTML = `
+      <div class="error-screen">
+        <h2>Oops!</h2>
+        <p>${message}</p>
+        <button class="btn" onclick="location.reload()">Reload</button>
+      </div>
+    `;
+  }
+
   private showToast(message: string): void {
     const toast = document.createElement('div');
-    toast.style.cssText = `
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--color-accent);
-      color: white;
-      padding: 12px 24px;
-      border-radius: 8px;
-      font-size: 14px;
-      z-index: 200;
-      animation: fadeIn 0.3s ease;
-    `;
+    toast.className = 'toast';
     toast.textContent = message;
     document.body.appendChild(toast);
 
     setTimeout(() => {
-      toast.style.opacity = '0';
-      toast.style.transition = 'opacity 0.3s ease';
+      toast.classList.add('fade-out');
       setTimeout(() => toast.remove(), 300);
     }, 2000);
+  }
+
+  private formatContent(content: string): string {
+    return content
+      .split('\n\n')
+      .map(p => `<p>${this.escapeHtml(p)}</p>`)
+      .join('');
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 }
 
