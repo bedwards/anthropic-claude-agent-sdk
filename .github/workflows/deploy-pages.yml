@@ -7,6 +7,7 @@ on:
       - 'apps/choose-your-own-adventure/src/**'
       - 'apps/choose-your-own-adventure/index.html'
       - 'apps/choose-your-own-adventure/package.json'
+  workflow_dispatch:
 
 jobs:
   deploy:
