@@ -12,11 +12,41 @@ Documentation website for the Claude Agent SDK, hosted on GitHub Pages from the 
 │   ├── essay.html       # Main essay
 │   ├── styles.css       # Stylesheet
 │   └── .nojekyll        # Disables Jekyll processing
+├── docs-for-claude/      # Knowledge base for Claude sessions
+│   ├── INDEX.md         # Section index with line numbers (read first)
+│   └── claude-agent-sdk-knowledge.md  # Full knowledge base (~660 lines)
 ├── scripts/
 │   └── calculate_reading_time.py  # Word count and reading time utility
 ├── raw-docs-source/     # Source material (not published)
 └── README.md
 ```
+
+## Retrieving Knowledge in Future Sessions
+
+When you need information about the Claude Agent SDK:
+
+1. **Read the index first**: `Read("docs-for-claude/INDEX.md")`
+2. **Find the relevant section** and note the line range
+3. **Read specific lines**: `Read("docs-for-claude/claude-agent-sdk-knowledge.md", offset=START, limit=LENGTH)`
+
+Example: To read about Python SDK (lines 137-200):
+```
+Read("docs-for-claude/claude-agent-sdk-knowledge.md", offset=137, limit=63)
+```
+
+### Quick Topic Lookup
+
+| Topic | Lines |
+|-------|-------|
+| Getting Started | 567-621 |
+| Understanding Agents | 7-37 |
+| Python Usage | 137-200 |
+| TypeScript Usage | 76-135 |
+| Security/Permissions | 232-267 |
+| MCP/External Tools | 350-405 |
+| Subagents | 314-348 |
+| Best Practices | 469-512 |
+| All Official Links | 623-659 |
 
 ## Workflow
 
