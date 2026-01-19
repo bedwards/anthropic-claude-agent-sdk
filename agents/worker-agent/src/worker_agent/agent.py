@@ -4,7 +4,6 @@ Handles full PR lifecycle from issue to merge to main branch verification.
 """
 
 import asyncio
-from pathlib import Path
 
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
@@ -16,7 +15,6 @@ from .models import (
     CIStatus,
     LogLevel,
     NotificationType,
-    ReviewStatus,
     WorkerConfig,
     WorkerPhase,
 )

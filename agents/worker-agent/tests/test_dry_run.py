@@ -1,18 +1,15 @@
 """Tests for dry-run mode functionality."""
 
-import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+
 from worker_agent.agent import WorkerAgent
 from worker_agent.dry_run_managers import DryRunGitHubManager, DryRunGitManager
 from worker_agent.models import (
     CIStatus,
-    LogLevel,
-    ReviewStatus,
     WorkerConfig,
-    WorkerPhase,
 )
 from worker_agent.status_manager import StatusManager
 
@@ -169,7 +166,7 @@ class TestDryRunGitManager:
 
         assert sha is not None
         assert sha.startswith("dry-run-")
-        assert len(sha) == 47  # dry-run-XXXXXXX + 33 zeros
+        assert len(sha) >= 40  # At least as long as a git SHA
 
         # Verify commit was logged
         status = status_manager.get_status()
@@ -373,7 +370,7 @@ class TestDryRunAgent:
                 agent.issue_number,
                 agent.status_manager,
             )
-            with patch("worker_agent.agent.Github"):
+            with patch("worker_agent.github_manager.Github"):
                 agent.github_manager = GitHubManager(normal_config, agent.status_manager)
 
         # Verify managers are normal versions

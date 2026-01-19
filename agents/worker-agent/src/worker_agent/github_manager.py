@@ -7,7 +7,6 @@ import asyncio
 from datetime import datetime
 
 from github import Github
-from github.PullRequest import PullRequest
 
 from .models import (
     CIStatus,
