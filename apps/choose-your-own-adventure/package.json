@@ -1,0 +1,24 @@
+{
+  "name": "choose-your-own-adventure",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "deploy": "npm run build && wrangler pages deploy dist --project-name=dragon-adventure"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@vitest/coverage-v8": "^4.0.17",
+    "jsdom": "^27.4.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.4",
+    "vitest": "^4.0.17",
+    "wrangler": "^4.59.2"
+  }
+}

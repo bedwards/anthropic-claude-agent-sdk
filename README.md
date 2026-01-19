@@ -34,6 +34,28 @@ python3 -m http.server 8000
 # Open http://localhost:8000
 ```
 
+## Apps
+
+### Choose Your Own Adventure
+
+**[Play Now →](https://dragon-adventure.pages.dev)**
+
+An interactive story game built with TypeScript and Vite, demonstrating branching narrative logic.
+
+- Multiple story paths with conditional choices
+- 8 different endings
+- Save/load progress
+- Share your position via URL
+- Responsive dark-themed UI
+
+```bash
+cd apps/choose-your-own-adventure
+npm install
+npm run dev      # Development server
+npm test         # Run tests
+npm run deploy   # Deploy to Cloudflare Pages
+```
+
 ## Examples
 
 ```
