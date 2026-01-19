@@ -411,34 +411,70 @@ If you cannot fix the issues without config changes, explain why."""
 
         worktree_path = self.git_manager.get_worktree_path()
 
-        feedback_text = "\n".join(
-            f"- **{c.path}:{c.line}**: {c.body}" for c in comments
+        # Build focused feedback text with just the actionable items
+        feedback_items = []
+        for c in comments:
+            # Extract just the key info, not the full body
+            feedback_items.append(f"- File: {c.path}, Line: {c.line}")
+
+        feedback_text = "\n".join(feedback_items)
+
+        # Get the full body from the first comment for context
+        full_feedback = comments[0].body if comments else ""
+
+        self.status_manager.log(
+            LogLevel.INFO,
+            f"Addressing {len(comments)} blocking comments",
         )
 
-        prompt = f"""The code review requested changes. Please address this feedback:
+        prompt = f"""The code review requested changes. Please fix this issue:
 
+{full_feedback}
+
+Files to modify:
 {feedback_text}
 
-Fix the issues and commit your changes."""
+Read the relevant files, make the necessary fixes, and ensure tests still pass."""
+
+        self.status_manager.log(LogLevel.DEBUG, f"Feedback prompt: {prompt[:200]}...")
 
         options = ClaudeAgentOptions(
             allowed_tools=["Read", "Write", "Edit", "Glob", "Grep", "Bash"],
             permission_mode="acceptEdits",
             cwd=str(worktree_path),
-            max_turns=20,
+            max_turns=30,
         )
 
         try:
+            self.status_manager.log(LogLevel.INFO, "Starting Claude SDK for feedback fix...")
             async with ClaudeSDKClient(options=options) as client:
                 await client.query(prompt)
                 async for message in client.receive_response():
-                    if isinstance(message, ResultMessage) and message.is_error:
-                        return False
+                    if isinstance(message, AssistantMessage):
+                        # Log Claude's progress
+                        text = ""
+                        for block in message.content:
+                            if isinstance(block, TextBlock):
+                                text = block.text[:100]
+                                break
+                        if text:
+                            self.status_manager.log(LogLevel.DEBUG, f"Claude: {text}...")
+                    if isinstance(message, ResultMessage):
+                        if message.is_error:
+                            self.status_manager.log(LogLevel.ERROR, f"Claude SDK error: {message.result}")
+                            return False
+                        self.status_manager.log(LogLevel.INFO, f"Claude completed feedback fix in {message.num_turns} turns")
 
-            await self.git_manager.commit("Address review feedback")
+            sha = await self.git_manager.commit("Address review feedback")
+            if sha:
+                self.status_manager.log(LogLevel.INFO, f"Committed feedback fix: {sha}")
+            else:
+                self.status_manager.log(LogLevel.WARN, "No changes made by Claude for feedback")
             return True
         except Exception as e:
             self.status_manager.log(LogLevel.ERROR, f"Failed to address feedback: {e}")
+            import traceback
+            self.status_manager.log(LogLevel.ERROR, traceback.format_exc())
             return False
 
     async def _fix_ci_failures(self) -> bool:
