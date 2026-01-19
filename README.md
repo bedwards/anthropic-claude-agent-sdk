@@ -34,6 +34,29 @@ python3 -m http.server 8000
 # Open http://localhost:8000
 ```
 
+## Examples
+
+```
+$ python examples/list-files.py
+This directory contains:
+
+**Files:**
+- `.gitignore` - Git ignore configuration
+- `CLAUDE.md` - Documentation for Claude (likely instructions or context)
+- `LICENSE` - License file (34KB)
+- `README.md` - Main readme documentation
+
+**Directories:**
+- `.git/` - Git repository data
+- `docs/` - Documentation directory
+- `docs-for-claude/` - Documentation specifically for Claude
+- `examples/` - Examples directory
+- `raw-docs-source/` - Raw documentation source files
+- `scripts/` - Scripts directory
+
+This appears to be a documentation or project repository with various docs directories and examples.
+```
+
 ## Scripts
 
 Calculate word counts and reading times:
