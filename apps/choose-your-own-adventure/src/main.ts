@@ -6,6 +6,13 @@ import './styles/main.css';
 import { api, type StoryNode, type StoryData } from './api/client';
 
 const DEFAULT_STORY = 'dragon-adventure';
+const SAVE_KEY_PREFIX = 'cyoa-save-';
+
+interface SaveData {
+  nodeId: string;
+  history: string[];
+  timestamp: number;
+}
 
 class App {
   private container: HTMLElement;
@@ -48,13 +55,23 @@ class App {
       // Load story if different from current
       if (storyId !== this.currentStoryId) {
         this.currentStoryId = storyId;
-        await this.loadStory(storyId);
-      }
-
-      // Navigate to specific node
-      if (nodeId && nodeId !== this.currentNodeId) {
         this.currentNodeId = nodeId;
-        await this.renderCurrentNode();
+        await this.loadStory(storyId);
+      } else if (nodeId !== this.currentNodeId) {
+        // Same story, different node
+        this.currentNodeId = nodeId;
+
+        // Check if node exists in our map
+        if (this.nodesMap.has(nodeId)) {
+          // Update history if needed
+          if (!this.history.includes(nodeId)) {
+            this.history.push(nodeId);
+          }
+          await this.renderCurrentNode();
+        } else {
+          // Node not loaded yet, reload story
+          await this.loadStory(storyId);
+        }
       }
       return;
     }
@@ -80,16 +97,23 @@ class App {
         </div>
 
         <div class="story-grid">
-          ${stories.map(story => `
+          ${stories.map(story => {
+            const savedGame = this.loadSave(story.id);
+            const hasSave = savedGame !== null;
+
+            return `
             <div class="story-card-preview" data-story-id="${story.id}">
               <h3>${this.escapeHtml(story.title)}</h3>
               <p class="story-description">${this.escapeHtml(story.description)}</p>
               <div class="story-card-footer">
                 <span class="story-theme">${this.escapeHtml(story.theme)}</span>
-                <button class="btn btn-play">Play →</button>
+                <div class="story-card-actions">
+                  ${hasSave ? `<button class="btn btn-secondary btn-continue" data-story-id="${story.id}">Continue</button>` : ''}
+                  <button class="btn btn-play" data-story-id="${story.id}">${hasSave ? 'Restart' : 'Play'} →</button>
+                </div>
               </div>
             </div>
-          `).join('')}
+          `}).join('')}
         </div>
       `;
 
@@ -98,17 +122,33 @@ class App {
         const storyId = (card as HTMLElement).dataset.storyId!;
 
         card.addEventListener('click', (e) => {
-          // Don't navigate if clicking the play button (it has its own handler)
-          if ((e.target as HTMLElement).classList.contains('btn-play')) {
+          // Don't navigate if clicking buttons
+          if ((e.target as HTMLElement).classList.contains('btn-play') ||
+              (e.target as HTMLElement).classList.contains('btn-continue')) {
             return;
           }
-          window.location.hash = `${storyId}/start`;
+
+          const savedGame = this.loadSave(storyId);
+          if (savedGame) {
+            window.location.hash = `${storyId}/${savedGame.nodeId}`;
+          } else {
+            window.location.hash = `${storyId}/start`;
+          }
         });
 
-        // Also bind the play button specifically
+        // Play button - always start fresh
         const playBtn = card.querySelector('.btn-play');
         playBtn?.addEventListener('click', () => {
           window.location.hash = `${storyId}/start`;
+        });
+
+        // Continue button - load saved game
+        const continueBtn = card.querySelector('.btn-continue');
+        continueBtn?.addEventListener('click', () => {
+          const savedGame = this.loadSave(storyId);
+          if (savedGame) {
+            window.location.hash = `${storyId}/${savedGame.nodeId}`;
+          }
         });
       });
     } catch (error) {
@@ -128,9 +168,25 @@ class App {
         this.nodesMap.set(node.id, node);
       }
 
-      // Initialize history with start node
-      this.history = [this.storyData.meta.startNodeId];
-      this.currentNodeId = this.storyData.meta.startNodeId;
+      const startNodeId = this.storyData.meta.startNodeId;
+
+      // If explicitly navigating to start node, clear save and start fresh (restart)
+      if (this.currentNodeId === startNodeId || this.currentNodeId === 'start') {
+        this.history = [startNodeId];
+        this.currentNodeId = startNodeId;
+        // Clear the save when restarting
+        this.clearSave(storyId);
+      } else if (this.nodesMap.has(this.currentNodeId)) {
+        // Navigating to a specific node from URL
+        // Initialize history if empty
+        if (this.history.length === 0) {
+          this.history = [this.currentNodeId];
+        }
+      } else {
+        // Node not found, go to start
+        this.history = [startNodeId];
+        this.currentNodeId = startNodeId;
+      }
 
       this.renderCurrentNode();
     } catch (error) {
@@ -154,11 +210,17 @@ class App {
     // Update URL with storyId/nodeId format
     window.location.hash = `${this.currentStoryId}/${node.id}`;
 
+    // Auto-save progress
+    this.saveGame();
+
+    // Check if we're at the start node
+    const isAtStart = node.id === this.storyData!.meta.startNodeId;
+
     // Render the node
     this.container.innerHTML = `
       <nav class="nav">
         <div class="nav-left">
-          <button class="btn btn-secondary" id="back-btn" ${this.history.length <= 1 ? 'disabled' : ''}>
+          <button class="btn btn-secondary" id="back-btn" ${this.history.length <= 1 ? 'disabled' : ''} ${isAtStart ? 'style="display:none"' : ''}>
             ← Back
           </button>
         </div>
@@ -391,6 +453,9 @@ class App {
         this.history.pop();
         this.currentNodeId = this.history[this.history.length - 1];
         this.renderCurrentNode();
+      } else {
+        // At start node, go back to home
+        window.location.hash = 'home';
       }
     });
 
@@ -497,6 +562,54 @@ class App {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * Save current game progress to LocalStorage
+   */
+  private saveGame(): void {
+    if (!this.currentStoryId) return;
+
+    const saveData: SaveData = {
+      nodeId: this.currentNodeId,
+      history: [...this.history],
+      timestamp: Date.now(),
+    };
+
+    try {
+      localStorage.setItem(
+        `${SAVE_KEY_PREFIX}${this.currentStoryId}`,
+        JSON.stringify(saveData)
+      );
+    } catch (error) {
+      console.error('Failed to save game:', error);
+    }
+  }
+
+  /**
+   * Load saved game from LocalStorage
+   */
+  private loadSave(storyId: string): SaveData | null {
+    try {
+      const data = localStorage.getItem(`${SAVE_KEY_PREFIX}${storyId}`);
+      if (!data) return null;
+
+      return JSON.parse(data) as SaveData;
+    } catch (error) {
+      console.error('Failed to load save:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Clear saved game for a story
+   */
+  private clearSave(storyId: string): void {
+    try {
+      localStorage.removeItem(`${SAVE_KEY_PREFIX}${storyId}`);
+    } catch (error) {
+      console.error('Failed to clear save:', error);
+    }
   }
 }
 

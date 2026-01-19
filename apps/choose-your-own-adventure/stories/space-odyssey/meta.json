@@ -1,7 +1,7 @@
 {
   "id": "space-odyssey",
-  "title": "Space Odyssey",
-  "description": "Navigate the dangers of deep space as captain of a colony ship",
+  "title": "The Signal",
+  "description": "A mysterious signal from deep space changes everything",
   "theme": "sci-fi",
   "startNodeId": "start",
   "createdAt": 1737312100000
