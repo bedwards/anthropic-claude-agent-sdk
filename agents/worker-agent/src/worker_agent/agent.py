@@ -9,6 +9,7 @@ from pathlib import Path
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
 
+from .dry_run_managers import DryRunGitHubManager, DryRunGitManager
 from .git_manager import GitManager
 from .github_manager import GitHubManager
 from .models import (
@@ -63,14 +64,23 @@ class WorkerAgent:
         )
         await self.status_manager.initialize()
 
-        self.git_manager = GitManager(
-            self.config.base_dir,
-            self.config.worktree_base_dir,
-            self.issue_number,
-            self.status_manager,
-        )
-
-        self.github_manager = GitHubManager(self.config, self.status_manager)
+        # Use mock managers in dry-run mode
+        if self.config.dry_run:
+            self.git_manager = DryRunGitManager(
+                self.config.base_dir,
+                self.config.worktree_base_dir,
+                self.issue_number,
+                self.status_manager,
+            )
+            self.github_manager = DryRunGitHubManager(self.config, self.status_manager)
+        else:
+            self.git_manager = GitManager(
+                self.config.base_dir,
+                self.config.worktree_base_dir,
+                self.issue_number,
+                self.status_manager,
+            )
+            self.github_manager = GitHubManager(self.config, self.status_manager)
 
         try:
             # Phase 1: Initialize worktree
@@ -244,6 +254,33 @@ class WorkerAgent:
         issue = await self.github_manager.get_issue(self.issue_number)
         worktree_path = self.git_manager.get_worktree_path()
 
+        # In dry-run mode, skip actual Claude SDK call
+        if self.config.dry_run:
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Would use Claude Agent SDK to implement feature",
+            )
+            self.status_manager.log(
+                LogLevel.INFO,
+                f'[DRY-RUN] Issue title: "{issue["title"]}"',
+            )
+            self.status_manager.log(
+                LogLevel.DEBUG,
+                "[DRY-RUN] Simulating feature implementation...",
+            )
+            # Simulate some work
+            await asyncio.sleep(2)
+
+            # Simulate a commit
+            await self.git_manager.commit(f"Implement feature for issue #{self.issue_number}")
+            await self.git_manager.push()
+
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Simulated feature implementation completed",
+            )
+            return True
+
         prompt = f"""You are implementing a feature for a GitHub issue.
 
 ## Issue #{self.issue_number}: {issue['title']}
@@ -305,6 +342,23 @@ Work in the current directory. Make incremental progress and commit often."""
 
         worktree_path = self.git_manager.get_worktree_path()
 
+        # In dry-run mode, simulate validation
+        if self.config.dry_run:
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Would run validation (lint, typecheck, test)",
+            )
+            self.status_manager.log(
+                LogLevel.DEBUG,
+                "[DRY-RUN] Simulating validation checks...",
+            )
+            await asyncio.sleep(1)
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Simulated validation: PASSED",
+            )
+            return True
+
         # Check what validation tools are available
         package_json = worktree_path / "package.json"
         pyproject = worktree_path / "pyproject.toml"
@@ -361,6 +415,19 @@ Work in the current directory. Make incremental progress and commit often."""
 
         worktree_path = self.git_manager.get_worktree_path()
 
+        # In dry-run mode, simulate fixing validation issues
+        if self.config.dry_run:
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Would use Claude to fix validation issues",
+            )
+            await asyncio.sleep(1)
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Simulated validation fixes applied",
+            )
+            return True
+
         prompt = """Validation (lint/typecheck/test) failed. Please:
 
 1. Read the error output from the validation commands
@@ -411,6 +478,19 @@ If you cannot fix the issues without config changes, explain why."""
 
         worktree_path = self.git_manager.get_worktree_path()
 
+        # In dry-run mode, simulate addressing feedback
+        if self.config.dry_run:
+            self.status_manager.log(
+                LogLevel.INFO,
+                f"[DRY-RUN] Would address {len(comments)} review comments",
+            )
+            await asyncio.sleep(1)
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Simulated review feedback addressed",
+            )
+            return True
+
         feedback_text = "\n".join(
             f"- **{c.path}:{c.line}**: {c.body}" for c in comments
         )
@@ -447,6 +527,19 @@ Fix the issues and commit your changes."""
             return False
 
         worktree_path = self.git_manager.get_worktree_path()
+
+        # In dry-run mode, simulate fixing CI failures
+        if self.config.dry_run:
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Would use Claude to fix CI failures",
+            )
+            await asyncio.sleep(1)
+            self.status_manager.log(
+                LogLevel.INFO,
+                "[DRY-RUN] Simulated CI fixes applied",
+            )
+            return True
 
         prompt = """CI checks failed. Please:
 

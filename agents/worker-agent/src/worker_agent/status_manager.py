@@ -52,8 +52,11 @@ class StatusManager:
     async def initialize(self) -> None:
         """Initialize status file - creates directory if needed."""
         self.config.status_dir.mkdir(parents=True, exist_ok=True)
+        self.status.dry_run = self.config.dry_run
         await self._persist()
         self.log(LogLevel.INFO, f"Worker agent started for issue #{self.status.issue_number}")
+        if self.config.dry_run:
+            self.log(LogLevel.INFO, "🔍 Running in DRY-RUN mode - no actual changes will be made")
 
     def log(self, level: LogLevel, message: str) -> None:
         """Add log entry."""

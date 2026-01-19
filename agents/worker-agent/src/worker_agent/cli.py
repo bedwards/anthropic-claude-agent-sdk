@@ -109,9 +109,12 @@ def run(
         manager_notification_file=notification_file.resolve() if notification_file else None,
         auto_merge=auto_merge,
         coverage_threshold=coverage_threshold,
+        dry_run=dry_run,
     )
 
     console.print(f"[bold blue]Starting worker agent for issue #{issue_number}[/bold blue]")
+    if dry_run:
+        console.print("[bold yellow]🔍 DRY-RUN MODE: No actual changes will be made[/bold yellow]")
     console.print(f"Repository: {repo_owner}/{repo_name}")
     console.print(f"Worktree: {worktree_dir}")
     console.print(f"Status: {status_dir}")
