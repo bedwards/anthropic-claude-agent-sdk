@@ -4,7 +4,9 @@
   "content": "You unfold the worn leather map, and the morning sun casts a warm glow on its yellowed parchment. As you study the intricate lines and symbols, you notice the map's edges are frayed and worn, as if it has been handled countless times. The village elder's words echo in your mind: \"The dragon values wisdom over strength.\" You wonder if this map holds the key to unlocking Pyraxis's treasure.\n\nAs you scrutinize the map, you notice a faint, almost imperceptible line etched near the mountain's base. It appears to be a hidden path, winding its way up the mountain's slope. You also spot a small, intricately drawn symbol near the peak, which seems to be a riddle or a code.\n\nThe air is crisp and clean, carrying the scent of damp earth and greenery. The mist-shrouded peak of Mount Drakenthorn looms before you, its rugged beauty beckoning you to explore. You can feel the weight of history and mystery emanating from the map, and you sense that this is just the beginning of your adventure. With the map spread before you, you begin to piece together the clues, and the whispers of the ancient map start to reveal their secrets.",
   "tagline": "Ancient secrets unfold beneath the morning sun.",
   "parentNodeId": "start",
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768858820550-bsqbqo"
+  ],
   "generatedOptions": [],
   "chosenOption": "Study the ancient map for hidden clues",
   "createdAt": 1768845972508
