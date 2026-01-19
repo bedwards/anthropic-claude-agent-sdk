@@ -8,7 +8,8 @@ describe('ApiClient', () => {
   beforeEach(() => {
     client = new ApiClient();
     fetchMock = vi.fn();
-    global.fetch = fetchMock;
+    // @ts-ignore - mock global fetch for testing
+    globalThis.fetch = fetchMock;
   });
 
   afterEach(() => {
