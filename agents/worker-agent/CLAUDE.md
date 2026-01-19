@@ -80,3 +80,25 @@ uv run ruff check .
 # Type check
 uv run mypy .
 ```
+
+## Test Status
+
+Tested against issue #12 (dry-run mode implementation) on 2026-01-19:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Initialize worktree | ✓ Working | Creates isolated git worktree |
+| Implement feature (Claude SDK) | ✓ Working | Successfully implements features |
+| Create PR | ✓ Working | Creates or reuses existing PR |
+| Read Claude GitHub comments | ✓ Working | Reads issue comments from Claude bot |
+| Skip processed comments | ✓ Working | Tracks already-addressed feedback |
+| Address review feedback | ✓ Working | Claude SDK fixes blocking issues |
+| CI check (no CI configured) | ✓ Working | Treats missing CI as success |
+| Merge conflict detection | ✓ Working | Detects and reports conflicts |
+| Merge conflict resolution | ⚠️ Reports for manual resolution | Does not auto-resolve complex conflicts |
+
+### Known Limitations
+
+- Claude GitHub integration must be installed and configured on the repo
+- Review timeout defaults to 10 minutes; adjust `review_timeout_seconds` for faster testing
+- Complex merge conflicts require manual resolution
