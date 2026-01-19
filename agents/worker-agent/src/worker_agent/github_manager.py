@@ -229,26 +229,40 @@ class GitHubManager:
         self,
         pr_number: int,
         timeout_seconds: int,
+        already_processed_ids: set[int] | None = None,
     ) -> PRReview | None:
         """Wait for Claude GitHub integration to review.
 
         Checks both formal PR reviews AND issue comments, since Claude
         GitHub integration typically posts issue comments rather than
         formal reviews.
+
+        Args:
+            pr_number: PR number to check
+            timeout_seconds: How long to wait
+            already_processed_ids: Set of comment IDs that have already been
+                addressed - these will be skipped to avoid re-processing
         """
         start_time = datetime.now()
         poll_interval = 15  # seconds
-        seen_comment_ids: set[int] = set()
+        skip_ids = already_processed_ids or set()
 
         self.status_manager.log(
             LogLevel.INFO,
             f"Waiting for Claude GitHub integration feedback on PR #{pr_number}",
         )
+        if skip_ids:
+            self.status_manager.log(
+                LogLevel.DEBUG,
+                f"Skipping {len(skip_ids)} already-processed comment(s)",
+            )
 
         while (datetime.now() - start_time).total_seconds() < timeout_seconds:
             # Check formal PR reviews first
             reviews = await self.get_pr_reviews(pr_number)
             for review in reviews:
+                if review.id in skip_ids:
+                    continue
                 is_claude = (
                     review.user_type == "Bot"
                     or "claude" in review.user_login.lower()
@@ -272,25 +286,25 @@ class GitHubManager:
             # Check issue comments (Claude GitHub integration uses these)
             claude_comments = await self.get_pr_comments_from_claude(pr_number)
             for comment in claude_comments:
-                if comment.id not in seen_comment_ids:
-                    seen_comment_ids.add(comment.id)
-                    self.status_manager.log(
-                        LogLevel.INFO,
-                        f"Claude comment received: {comment.state} from {comment.user_login}",
-                    )
-                    status_map = {
-                        "APPROVED": ReviewStatus.APPROVED,
-                        "CHANGES_REQUESTED": ReviewStatus.CHANGES_REQUESTED,
-                        "COMMENTED": ReviewStatus.COMMENTED,
-                    }
-                    await self.status_manager.set_review_status(
-                        status_map.get(comment.state, ReviewStatus.COMMENTED)
-                    )
-                    return comment
+                if comment.id in skip_ids:
+                    continue
+                self.status_manager.log(
+                    LogLevel.INFO,
+                    f"Claude comment received: {comment.state} from {comment.user_login}",
+                )
+                status_map = {
+                    "APPROVED": ReviewStatus.APPROVED,
+                    "CHANGES_REQUESTED": ReviewStatus.CHANGES_REQUESTED,
+                    "COMMENTED": ReviewStatus.COMMENTED,
+                }
+                await self.status_manager.set_review_status(
+                    status_map.get(comment.state, ReviewStatus.COMMENTED)
+                )
+                return comment
 
             self.status_manager.log(
                 LogLevel.DEBUG,
-                f"No Claude feedback yet, polling in {poll_interval}s...",
+                f"No new Claude feedback yet, polling in {poll_interval}s...",
             )
             await asyncio.sleep(poll_interval)
 
