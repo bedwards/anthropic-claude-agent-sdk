@@ -8,6 +8,7 @@ import {
   getStoryNode,
   saveStoryNode,
   getAllStoryNodes,
+  getAllStories,
   initializeStory,
 } from './github';
 import type {
@@ -87,6 +88,12 @@ export default {
       // Health check
       if (path === '/api/health') {
         return jsonResponse({ status: 'ok', timestamp: Date.now() });
+      }
+
+      // Get all available stories
+      if (path === '/api/stories' && request.method === 'GET') {
+        const stories = await getAllStories(env);
+        return jsonResponse({ stories });
       }
 
       // Get story metadata and all nodes

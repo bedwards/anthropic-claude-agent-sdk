@@ -239,6 +239,47 @@ export async function getAllStoryNodes(
 }
 
 /**
+ * Get all available stories
+ */
+export async function getAllStories(env: Env): Promise<StoryMeta[]> {
+  const url = `${GITHUB_API}/repos/${env.GITHUB_REPO}/contents/${env.STORIES_PATH}`;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'CYOA-Worker',
+  };
+
+  if (env.GITHUB_TOKEN) {
+    headers['Authorization'] = `Bearer ${env.GITHUB_TOKEN}`;
+  }
+
+  try {
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) {
+      return [];
+    }
+
+    const directories = (await response.json()) as Array<{ name: string; type: string }>;
+    const stories: StoryMeta[] = [];
+
+    for (const dir of directories) {
+      if (dir.type === 'dir') {
+        const meta = await getStoryMeta(env, dir.name);
+        if (meta) {
+          stories.push(meta);
+        }
+      }
+    }
+
+    return stories;
+  } catch (error) {
+    console.error('Error getting all stories:', error);
+    return [];
+  }
+}
+
+/**
  * Initialize a new story with a starting node
  */
 export async function initializeStory(

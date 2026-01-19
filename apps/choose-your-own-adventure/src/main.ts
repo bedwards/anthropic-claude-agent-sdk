@@ -3,9 +3,7 @@
  */
 
 import './styles/main.css';
-import { api, type StoryNode, type StoryData } from './api/client';
-
-const DEFAULT_STORY = 'dragon-adventure';
+import { api, type StoryNode, type StoryData, type StoryMeta } from './api/client';
 
 class App {
   private container: HTMLElement;
@@ -21,22 +19,31 @@ class App {
   }
 
   private async init(): Promise<void> {
-    // Check for node ID in URL hash
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      this.currentNodeId = hash;
-    }
+    // Check if a story is selected via URL params
+    const urlParams = new URLSearchParams(window.location.search);
+    const storyId = urlParams.get('story');
 
-    // Listen for hash changes
-    window.addEventListener('hashchange', () => {
-      const newHash = window.location.hash.slice(1);
-      if (newHash && newHash !== this.currentNodeId) {
-        this.currentNodeId = newHash;
-        this.renderCurrentNode();
+    if (storyId) {
+      // Check for node ID in URL hash
+      const hash = window.location.hash.slice(1);
+      if (hash) {
+        this.currentNodeId = hash;
       }
-    });
 
-    await this.loadStory(DEFAULT_STORY);
+      // Listen for hash changes
+      window.addEventListener('hashchange', () => {
+        const newHash = window.location.hash.slice(1);
+        if (newHash && newHash !== this.currentNodeId) {
+          this.currentNodeId = newHash;
+          this.renderCurrentNode();
+        }
+      });
+
+      await this.loadStory(storyId);
+    } else {
+      // Show story selection page
+      await this.showStorySelection();
+    }
   }
 
   private async loadStory(storyId: string): Promise<void> {
@@ -88,7 +95,7 @@ class App {
         </div>
         <div class="nav-right">
           <button class="btn btn-secondary" id="share-btn">Share</button>
-          <button class="btn btn-secondary" id="home-btn">Restart</button>
+          <button class="btn btn-secondary" id="home-btn">Home</button>
         </div>
       </nav>
 
@@ -323,11 +330,9 @@ class App {
       this.showShareModal();
     });
 
-    // Home/Restart button
+    // Home/Restart button - go back to story selection
     this.container.querySelector('#home-btn')?.addEventListener('click', () => {
-      this.history = [this.storyData!.meta.startNodeId];
-      this.currentNodeId = this.storyData!.meta.startNodeId;
-      this.renderCurrentNode();
+      window.location.href = '/';
     });
 
     // Branch buttons
@@ -379,6 +384,60 @@ class App {
         overlay.remove();
       }
     });
+  }
+
+  private async showStorySelection(): Promise<void> {
+    this.showLoading('Loading stories...');
+
+    try {
+      const stories = await api.getAllStories();
+
+      this.container.innerHTML = `
+        <div class="story-selection">
+          <div class="story-selection-header">
+            <h1 class="fire-effect">Choose Your Own Adventure</h1>
+            <p class="tagline">Select a story to begin your journey</p>
+          </div>
+
+          <div class="story-grid">
+            ${stories.map(story => `
+              <div class="story-card-preview" data-story-id="${story.id}">
+                <div class="story-icon">${this.getStoryIcon(story.theme)}</div>
+                <h2>${this.escapeHtml(story.title)}</h2>
+                <p class="story-description">${this.escapeHtml(story.description)}</p>
+                <div class="story-meta">
+                  <span class="theme-badge theme-${story.theme}">${story.theme}</span>
+                </div>
+                <button class="btn btn-primary" data-story-id="${story.id}">
+                  Start Adventure →
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      // Bind story selection handlers
+      this.container.querySelectorAll('.btn-primary').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const storyId = (btn as HTMLElement).dataset.storyId!;
+          window.location.href = `?story=${storyId}`;
+        });
+      });
+    } catch (error) {
+      console.error('Failed to load stories:', error);
+      this.showError('Failed to load stories. Please try again.');
+    }
+  }
+
+  private getStoryIcon(theme: string): string {
+    const icons: Record<string, string> = {
+      'fantasy': '🐉',
+      'sci-fi': '🚀',
+      'mystery': '🔍',
+      'horror': '👻',
+    };
+    return icons[theme] || '📖';
   }
 
   private showLoading(message: string): void {
