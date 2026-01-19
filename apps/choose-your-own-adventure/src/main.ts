@@ -79,16 +79,20 @@ class App {
     window.location.hash = node.id;
 
     // Render the node
+    const isAtStart = this.currentNodeId === this.storyData!.meta.startNodeId;
+
     this.container.innerHTML = `
       <nav class="nav">
         <div class="nav-left">
-          <button class="btn btn-secondary" id="back-btn" ${this.history.length <= 1 ? 'disabled' : ''}>
+          ${!isAtStart ? `
+          <button class="btn btn-secondary" id="back-btn">
             ← Back
           </button>
+          ` : ''}
         </div>
         <div class="nav-right">
           <button class="btn btn-secondary" id="share-btn">Share</button>
-          <button class="btn btn-secondary" id="home-btn">Restart</button>
+          <button class="btn btn-secondary" id="restart-btn">Restart</button>
         </div>
       </nav>
 
@@ -315,6 +319,9 @@ class App {
         this.history.pop();
         this.currentNodeId = this.history[this.history.length - 1];
         this.renderCurrentNode();
+      } else if (this.currentNodeId === this.storyData!.meta.startNodeId) {
+        // If at start and user goes back, go to home page
+        window.location.href = '/';
       }
     });
 
@@ -323,8 +330,9 @@ class App {
       this.showShareModal();
     });
 
-    // Home/Restart button
-    this.container.querySelector('#home-btn')?.addEventListener('click', () => {
+    // Restart button
+    this.container.querySelector('#restart-btn')?.addEventListener('click', () => {
+      // Clear history and go to story start
       this.history = [this.storyData!.meta.startNodeId];
       this.currentNodeId = this.storyData!.meta.startNodeId;
       this.renderCurrentNode();
