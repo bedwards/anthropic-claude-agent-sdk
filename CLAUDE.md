@@ -60,6 +60,29 @@ Read("docs-for-claude/claude-agent-sdk-knowledge.md", offset=137, limit=63)
 | Best Practices | 469-512 |
 | All Official Links | 623-659 |
 
+## Security Guidelines
+
+**NEVER commit:**
+- Secrets, API keys, tokens, passwords
+- `.env` files (except `.env.example`)
+- Credentials files (`credentials.json`, `*.pem`, `*.key`)
+- Service account files
+
+**NEVER put client-side:**
+- API keys or secrets
+- Database credentials
+- Private configuration
+
+**Generated files to exclude:**
+- `__pycache__/`, `*.pyc`
+- `node_modules/`
+- `.venv/`, `venv/`
+- `uv.lock` (regenerated on install)
+- `.coverage`, `.pytest_cache/`
+- Build artifacts (`dist/`, `build/`)
+
+The root `.gitignore` covers these patterns. Always verify before committing.
+
 ## Workflow
 
 - Always commit and push after every change
@@ -130,3 +153,27 @@ Key behaviors:
 - Commits frequently for visibility and recovery
 - Creates follow-up issues for non-blocking review feedback
 - Cleans up worktree on completion
+
+### Worker Agent Test Status
+
+**Tested and working:**
+- Git worktree creation for isolation
+- Reading GitHub issue details
+- Claude Agent SDK implementation phase
+- Writing tests (generated 378 lines of tests)
+- Running validation (lint, typecheck, tests)
+- Committing and pushing to branch
+- PR creation
+
+**Not yet tested:**
+- Review feedback loop (responding to Claude GitHub integration)
+- CI failure fixing
+- Merge conflict resolution
+- PR merge
+- Main branch verification post-merge
+- Manager notifications
+
+**Known issues to fix:**
+- Should check if PR exists before creating (handle 422)
+- Need better error recovery on failures
+- Cleanup on crash/interrupt incomplete

@@ -137,3 +137,91 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# ===================
+# Python
+# ===================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Testing
+.coverage
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# mypy
+.mypy_cache/
+
+# ruff
+.ruff_cache/
+
+# uv
+uv.lock
+
+# ===================
+# Secrets and credentials - NEVER COMMIT
+# ===================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+credentials.json
+secrets.json
+service-account*.json
+*-credentials.json
+.secrets/
+secrets/
+
+# API keys and tokens
+*.token
+api_key*
+apikey*
+
+# AWS
+.aws/
+
+# GCP
+.gcloud/
+application_default_credentials.json
+
+# ===================
+# Worker agent specific
+# ===================
+.worktrees/
+.worker-status/
+
+# ===================
+# IDE and OS
+# ===================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
