@@ -1,0 +1,8 @@
+{
+  "id": "space-odyssey",
+  "title": "The Signal",
+  "description": "An astronaut receives a mysterious signal from deep space and must decide how to respond",
+  "theme": "sci-fi",
+  "startNodeId": "start",
+  "createdAt": 1737312000000
+}

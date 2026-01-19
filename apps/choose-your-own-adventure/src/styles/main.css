@@ -733,3 +733,153 @@ body {
   opacity: 0;
   transition: opacity 0.3s ease;
 }
+
+/* Story Selection Page */
+.story-selection {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: var(--spacing-xl);
+}
+
+.story-selection-header {
+  text-align: center;
+  margin-bottom: var(--spacing-2xl);
+  padding: var(--spacing-2xl) var(--spacing-xl);
+}
+
+.story-selection-header h1 {
+  font-family: var(--font-fantasy);
+  font-size: 3rem;
+  color: var(--color-fantasy-gold);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin-bottom: var(--spacing-md);
+}
+
+.story-selection-header .tagline {
+  color: var(--color-text-muted);
+  font-size: 1.2rem;
+}
+
+.story-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-2xl);
+}
+
+.story-card-preview {
+  background: var(--color-bg-card);
+  border: 2px solid transparent;
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-xl);
+  transition: all var(--transition-normal);
+  animation: fadeIn var(--transition-slow) ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.story-card-preview:hover {
+  border-color: var(--color-accent);
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-lg);
+}
+
+.story-icon {
+  font-size: 4rem;
+  text-align: center;
+  margin-bottom: var(--spacing-sm);
+}
+
+.story-card-preview h2 {
+  font-family: var(--font-fantasy);
+  color: var(--color-fantasy-gold);
+  font-size: 1.8rem;
+  margin-bottom: var(--spacing-sm);
+  text-align: center;
+}
+
+.story-description {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.6;
+  flex: 1;
+  text-align: center;
+}
+
+.story-meta {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-sm);
+}
+
+.theme-badge {
+  display: inline-block;
+  padding: var(--spacing-xs) var(--spacing-md);
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.theme-fantasy {
+  background: linear-gradient(135deg, var(--color-fantasy-fire), var(--color-fantasy-dragon));
+  color: white;
+}
+
+.theme-sci-fi {
+  background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+  color: white;
+}
+
+.theme-mystery {
+  background: linear-gradient(135deg, #4a1d96, #7c3aed);
+  color: white;
+}
+
+.theme-horror {
+  background: linear-gradient(135deg, #450a0a, #991b1b);
+  color: white;
+}
+
+.story-card-preview .btn-primary {
+  width: 100%;
+  margin-top: var(--spacing-sm);
+  font-size: 1.1rem;
+  padding: var(--spacing-md) var(--spacing-lg);
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 600px) {
+  .story-selection-header h1 {
+    font-size: 2rem;
+  }
+
+  .story-selection-header .tagline {
+    font-size: 1rem;
+  }
+
+  .story-grid {
+    grid-template-columns: 1fr;
+  }
+}

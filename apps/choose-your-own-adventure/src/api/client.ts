@@ -35,6 +35,18 @@ const API_BASE = import.meta.env.DEV
 
 export class ApiClient {
   /**
+   * Get all available stories
+   */
+  async getAllStories(): Promise<StoryMeta[]> {
+    const response = await fetch(`${API_BASE}/api/stories`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch stories: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return data.stories;
+  }
+
+  /**
    * Fetch full story data
    */
   async getStory(storyId: string): Promise<StoryData> {
