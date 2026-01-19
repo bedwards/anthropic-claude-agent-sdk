@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Agent SDK Documentation</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="Comprehensive documentation and essays on building autonomous AI agents with the Claude Agent SDK from Anthropic.">
+</head>
+<body>
+  <div class="container">
+    <div class="hero">
+      <h1>Claude Agent SDK</h1>
+      <p>Build production AI agents that autonomously read files, run commands, search the web, edit code, and accomplish complex goals. The same engine that powers Claude Code, available as a library.</p>
+    </div>
+
+    <section>
+      <h2>Documentation</h2>
+
+      <a href="essay.html" style="text-decoration: none; color: inherit;">
+        <div class="card">
+          <h3>Understanding the Claude Agent SDK: From First Principles to Production</h3>
+          <p>A comprehensive guide exploring the architecture, philosophy, and practical implementation of autonomous AI agents. Covers what distinguishes agents from workflows, why Anthropic embraced bash as a core tool, how the three-part agent loop works, and detailed explanations of both the TypeScript and Python SDKs.</p>
+          <div class="meta">
+            <span class="meta-item">23 min read</span>
+            <span class="meta-item">~5,000 words</span>
+          </div>
+          <div style="margin-top: 0.75rem;">
+            <span class="tag">Architecture</span>
+            <span class="tag">Philosophy</span>
+            <span class="tag">TypeScript</span>
+            <span class="tag">Python</span>
+            <span class="tag">Production</span>
+          </div>
+        </div>
+      </a>
+    </section>
+
+    <section>
+      <h2>Official Resources</h2>
+
+      <div class="card">
+        <h3>SDK Documentation</h3>
+        <p>Official documentation from Anthropic covering installation, configuration, and all SDK features.</p>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/overview">Overview</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/quickstart">Quickstart</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/typescript">TypeScript SDK</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/python">Python SDK</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/migration-guide">Migration Guide</a></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Guides</h3>
+        <p>In-depth guides for specific features and use cases.</p>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/permissions">Permissions</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/hooks">Hooks</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/sessions">Sessions</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/mcp">MCP Integration</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/subagents">Subagents</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/structured-outputs">Structured Outputs</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/hosting">Hosting</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/custom-tools">Custom Tools</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/skills">Skills</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/cost-tracking">Cost Tracking</a></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Source Code and Examples</h3>
+        <p>Official repositories and example implementations.</p>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://github.com/anthropics/claude-agent-sdk-python">Python SDK on GitHub</a></div>
+          <div class="link-item"><a href="https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk">TypeScript SDK on npm</a></div>
+          <div class="link-item"><a href="https://github.com/anthropics/claude-agent-sdk-demos">Example Agents</a></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Key Concepts</h2>
+
+      <div class="card">
+        <h3>What is an Agent?</h3>
+        <p>An agent is fundamentally different from a workflow. Workflows follow your predetermined structure. Agents build their own structure. You give an agent a goal and the tools to achieve that goal, and it decides its own trajectory. Claude Code is the canonical example: you speak to it in natural language and it autonomously reads files, runs commands, edits code, and verifies its work.</p>
+      </div>
+
+      <div class="card">
+        <h3>The Three-Part Loop</h3>
+        <p>Every well-designed agent follows this pattern: gather context (find the information needed for the task), take action (use appropriate tools), and verify the work (confirm the results are correct). If you can programmatically verify the agent's work, you have an excellent candidate for automation.</p>
+      </div>
+
+      <div class="card">
+        <h3>Bash Is All You Need</h3>
+        <p>Anthropic discovered that the bash tool represents perhaps the most powerful capability you can give an agent. It enables storing results to files, dynamically generating scripts, composing functionality through pipes, and using any existing software on the system. This obviates the need for most specialized tools.</p>
+      </div>
+
+      <div class="card">
+        <h3>Defense in Depth</h3>
+        <p>Security comes through multiple layers: model alignment training, harness permissioning and prompting, bash command parsing, and sandboxing. Each layer has holes, but the layers are arranged so no single path goes straight through. This is called the Swiss cheese defense.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Quick Start</h2>
+
+      <div class="card">
+        <h3>Installation</h3>
+        <p>Install Claude Code first (the SDK uses it as its runtime), then install the SDK package:</p>
+        <pre><code># Install Claude Code
+curl -fsSL https://claude.ai/install.sh | bash
+
+# TypeScript
+npm install @anthropic-ai/claude-agent-sdk
+
+# Python
+pip install claude-agent-sdk</code></pre>
+      </div>
+
+      <div class="card">
+        <h3>Minimal Example</h3>
+        <p>Create an agent that lists files in your directory:</p>
+        <pre><code># Python
+import asyncio
+from claude_agent_sdk import query, ClaudeAgentOptions
+
+async def main():
+    async for message in query(
+        prompt="What files are in this directory?",
+        options=ClaudeAgentOptions(allowed_tools=["Bash", "Glob"])
+    ):
+        if hasattr(message, "result"):
+            print(message.result)
+
+asyncio.run(main())</code></pre>
+      </div>
+    </section>
+
+    <section>
+      <h2>Additional Reading</h2>
+
+      <div class="card">
+        <h3>Anthropic Engineering Blog</h3>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk">Building Agents with the Claude Agent SDK</a></div>
+          <div class="link-item"><a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Effective Harnesses for Long-Running Agents</a></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Community Guides</h3>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://nader.substack.com/p/the-complete-guide-to-building-agents">The Complete Guide to Building Agents (Nader Dabit)</a></div>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <p>This documentation site supplements the official <a href="https://platform.claude.com/docs/en/agent-sdk/overview">Anthropic documentation</a>. Built with the Claude Agent SDK in mind.</p>
+    </footer>
+  </div>
+</body>
+</html>
