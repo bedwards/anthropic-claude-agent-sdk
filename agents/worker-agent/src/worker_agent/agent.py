@@ -105,20 +105,26 @@ class WorkerAgent:
 
             # Phase 5-8: Review/CI/Merge loop
             max_iterations = self.config.max_retries
+            processed_comment_ids: set[int] = set()  # Track comments we've already addressed
+
             for iteration in range(max_iterations):
                 self.status_manager.log(
                     LogLevel.INFO,
                     f"Review/merge iteration {iteration + 1}/{max_iterations}",
                 )
 
-                # Wait for Claude review
+                # Wait for Claude review (pass processed IDs to skip old comments)
                 await self.status_manager.set_phase(WorkerPhase.AWAITING_REVIEW)
                 review = await self.github_manager.wait_for_claude_review(
                     pr_number,
                     self.config.review_timeout_seconds,
+                    processed_comment_ids,
                 )
 
                 if review:
+                    # Mark this comment as processed so we don't address it again
+                    processed_comment_ids.add(review.id)
+
                     if review.state == "CHANGES_REQUESTED":
                         # Address blocking feedback
                         await self.status_manager.set_phase(WorkerPhase.ADDRESSING_FEEDBACK)
