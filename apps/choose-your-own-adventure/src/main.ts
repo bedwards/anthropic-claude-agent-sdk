@@ -129,10 +129,8 @@ class App {
       }
 
       // Initialize history with start node
-      if (!this.history.length) {
-        this.history = [this.storyData.meta.startNodeId];
-        this.currentNodeId = this.storyData.meta.startNodeId;
-      }
+      this.history = [this.storyData.meta.startNodeId];
+      this.currentNodeId = this.storyData.meta.startNodeId;
 
       this.renderCurrentNode();
     } catch (error) {
