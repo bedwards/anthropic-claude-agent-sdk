@@ -41,8 +41,8 @@ class App {
   private async handleRoute(): Promise<void> {
     const hash = window.location.hash.slice(1);
 
-    // Home page or no hash
-    if (!hash || hash === 'home') {
+    // Home page: empty hash, '/', or 'home'
+    if (!hash || hash === '' || hash === 'home') {
       await this.showHomePage();
       return;
     }
@@ -76,12 +76,9 @@ class App {
       return;
     }
 
-    // Legacy format - just node ID, use default story
-    if (hash && this.currentStoryId === null) {
-      this.currentStoryId = DEFAULT_STORY;
-      this.currentNodeId = hash;
-      await this.loadStory(DEFAULT_STORY);
-    }
+    // If we get here with a hash, show home page (removed legacy format that auto-loads default story)
+    // This prevents unintended redirects to the default story
+    await this.showHomePage();
   }
 
   private async showHomePage(): Promise<void> {
