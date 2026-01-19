@@ -12,7 +12,7 @@ interface GitHubFile {
 }
 
 /**
- * Get a file from the repository
+ * Get a file from the repository (works without auth for public repos)
  */
 export async function getFile(
   env: Env,
@@ -20,14 +20,18 @@ export async function getFile(
 ): Promise<GitHubFile | null> {
   const url = `${GITHUB_API}/repos/${env.GITHUB_REPO}/contents/${path}`;
 
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'CYOA-Worker',
+  };
+
+  // Only add auth if token is available (needed for private repos or higher rate limits)
+  if (env.GITHUB_TOKEN) {
+    headers['Authorization'] = `Bearer ${env.GITHUB_TOKEN}`;
+  }
+
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'CYOA-Worker',
-      },
-    });
+    const response = await fetch(url, { headers });
 
     if (response.status === 404) {
       return null;
@@ -198,14 +202,17 @@ export async function getAllStoryNodes(
   const path = `${env.STORIES_PATH}/${storyId}/nodes`;
   const url = `${GITHUB_API}/repos/${env.GITHUB_REPO}/contents/${path}`;
 
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    'User-Agent': 'CYOA-Worker',
+  };
+
+  if (env.GITHUB_TOKEN) {
+    headers['Authorization'] = `Bearer ${env.GITHUB_TOKEN}`;
+  }
+
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'CYOA-Worker',
-      },
-    });
+    const response = await fetch(url, { headers });
 
     if (!response.ok) {
       return [];
