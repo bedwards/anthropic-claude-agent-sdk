@@ -325,6 +325,16 @@ class GitHubManager:
         # Get check runs (GitHub Actions)
         check_runs = list(self.repo.get_commit(head_sha).get_check_runs())
 
+        # Check if there are no CI checks configured
+        statuses = list(combined_status.statuses)
+        if not check_runs and not statuses:
+            # No CI configured - treat as success
+            self.status_manager.log(
+                LogLevel.INFO, "No CI checks configured, treating as success"
+            )
+            await self.status_manager.set_ci_status(CIStatus.SUCCESS)
+            return CIStatus.SUCCESS
+
         # Determine overall status
         has_failure = combined_status.state == "failure" or any(
             run.conclusion == "failure" for run in check_runs
