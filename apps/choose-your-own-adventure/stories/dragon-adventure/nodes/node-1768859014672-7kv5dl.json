@@ -4,7 +4,9 @@
   "content": "You make your way through the winding streets of Willowmere, the scent of freshly baked bread and roasting meats wafting from the market stalls. The villagers bid you farewell, their voices carrying on the gentle breeze as you approach the village's central square. Amidst the bustling crowd, a small, unassuming door beckons. The sign above it reads \"The Sage's Sanctum\" in faded letters.\n\nYou knock three times, and the door creaks open to reveal a dimly lit chamber filled with the musty scent of ancient tomes. The village's wisest scholar, Lyra, greets you with a warm smile. Her eyes, like polished onyx, sparkle with a deep understanding as she invites you to enter.\n\nThe room is a labyrinth of shelves, stacked haphazardly with dusty scrolls, leather-bound books, and strange, glowing artifacts. The air is thick with the whispers of forgotten knowledge. Lyra leads you to a small, circular table, where a steaming cup of herbal tea awaits. \"Tell me, adventurer,\" she says, her voice like a gentle brook, \"what is it you seek in the heart of Mount Drakenthorn?\"",
   "tagline": "Seeking wisdom in the village's heart",
   "parentNodeId": "start",
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768859060827-w0n1wf"
+  ],
   "generatedOptions": [],
   "chosenOption": "Seek out the village's wisest scholar for guidance",
   "createdAt": 1768859032837
