@@ -5,7 +5,6 @@
 import './styles/main.css';
 import { api, type StoryNode, type StoryData } from './api/client';
 
-const DEFAULT_STORY = 'dragon-adventure';
 const SAVE_KEY_PREFIX = 'cyoa-save-';
 
 interface SaveData {
