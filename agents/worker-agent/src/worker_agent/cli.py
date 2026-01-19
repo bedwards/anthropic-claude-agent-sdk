@@ -64,6 +64,11 @@ def run(
         "--coverage-threshold",
         help="Minimum code coverage percentage",
     ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Run in dry-run mode: simulate without making actual changes",
+    ),
 ) -> None:
     """
     Run the worker agent to implement a GitHub issue.

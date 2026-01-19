@@ -84,6 +84,7 @@ class WorkerStatus(BaseModel):
     created_issues: list[int] = Field(default_factory=list)
     logs: list[LogEntry] = Field(default_factory=list)
     main_branch_verified: bool = False
+    dry_run: bool = False  # Whether this worker is running in dry-run mode
 
 
 class WorkerConfig(BaseModel):
@@ -108,6 +109,7 @@ class WorkerConfig(BaseModel):
     ci_timeout_seconds: int = 600  # 10 minutes
     main_build_timeout_seconds: int = 300  # 5 minutes
     commit_frequency_seconds: int = 60  # 1 minute
+    dry_run: bool = False  # Dry-run mode: simulate without actual changes
 
     # Validation thresholds
     coverage_threshold: int = 70
