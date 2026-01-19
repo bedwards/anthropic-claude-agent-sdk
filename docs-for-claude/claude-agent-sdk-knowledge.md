@@ -656,3 +656,60 @@ except CLIJSONDecodeError as e:
 ### Blog Posts
 - Building Agents: https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk
 - Effective Harnesses: https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents
+
+---
+
+## WORKER AGENT IMPLEMENTATION
+
+### The Gap in One-Shot Workers
+One-shot workers implement features but leave a gap: everything after the PR is created. Code review feedback arrives, CI checks run, merge conflicts appear. In the one-shot pattern, the manager must monitor every PR, read every review, spawn new workers for feedback, and orchestrate merges. The manager becomes a bottleneck.
+
+The worker agent closes this gap by owning the entire PR lifecycle: implementation through verified merge.
+
+### Worker Agent Lifecycle
+1. Initialize: Create git worktree for isolation
+2. Implement: Use Claude Agent SDK to implement the feature
+3. Validate: Run lint, typecheck, tests locally (before creating PR)
+4. Create PR: Push and open pull request
+5. Review Loop: Wait for Claude GitHub integration review, address blocking feedback, create issues for non-blocking
+6. CI Loop: Wait for CI, fix failures
+7. Merge: Squash merge when approved and green
+8. Verify Main: Watch main branch build after merge, report failures to manager
+
+### Git Worktrees for Parallel Isolation
+Each worker agent creates its own worktree (e.g., `.worktrees/issue-42`). Worktrees share git history but have separate working files. This enables true parallelism: ten workers can run simultaneously without conflicts. Each worktree needs its own dependency installation.
+
+### Worker Agent Architecture
+- **StatusManager**: Logging and status persistence to JSON files
+- **GitManager**: Git worktree, commits, pushes, conflict checking, rebasing
+- **GitHubManager**: Issue reading, PR creation, review polling, CI status, merging, main branch monitoring
+- **WorkerAgent**: State machine orchestrating all phases
+- **CLI**: Command-line interface (`worker run 42 --repo owner/repo`)
+
+### Main Branch Verification
+After merging, the agent watches the main branch build. If main fails, the agent reports to the manager with a MAIN_BRANCH_FAILED notification. The manager can then create a fix issue and spawn another worker. The system becomes self-healing.
+
+### What Worker Agent Does NOT Do
+- Make architectural decisions (issue must be detailed enough)
+- Modify build configuration without permission
+- Force push or rewrite public history
+- Handle complex merge conflicts (flags for human resolution)
+- Decide what to work on (manager decides priorities)
+
+### Worker Agent Development
+```bash
+cd agents/worker-agent
+uv sync                    # Install dependencies
+uv run pytest              # Run tests
+uv run ruff check .        # Lint
+uv run mypy .              # Type check
+```
+
+### Worker Agent Files
+- `agents/worker-agent/pyproject.toml` - Project configuration
+- `agents/worker-agent/src/worker_agent/models.py` - Pydantic models
+- `agents/worker-agent/src/worker_agent/status_manager.py` - Logging/status
+- `agents/worker-agent/src/worker_agent/git_manager.py` - Git operations
+- `agents/worker-agent/src/worker_agent/github_manager.py` - GitHub API
+- `agents/worker-agent/src/worker_agent/agent.py` - Main orchestration
+- `agents/worker-agent/src/worker_agent/cli.py` - CLI

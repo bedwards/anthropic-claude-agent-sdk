@@ -86,6 +86,15 @@ Read this file first, then use `Read` with `offset` and `limit` parameters to fe
 | ├─ Guides | 633-649 | Feature guide links |
 | ├─ Repositories | 651-654 | GitHub and npm links |
 | └─ Blog Posts | 656-659 | Anthropic engineering blog |
+| **WORKER AGENT** | 662-715 | Autonomous PR lifecycle agent |
+| ├─ The Gap in One-Shot Workers | 664-667 | Why worker agents exist |
+| ├─ Worker Agent Lifecycle | 669-677 | 8-step process |
+| ├─ Git Worktrees | 679-680 | Parallel isolation |
+| ├─ Architecture | 682-687 | Components overview |
+| ├─ Main Branch Verification | 689-690 | Post-merge monitoring |
+| ├─ What Agent Does NOT Do | 692-697 | Limitations and boundaries |
+| ├─ Development | 699-706 | uv, pytest, ruff, mypy |
+| └─ Files | 708-715 | Source file locations |
 
 ---
 
@@ -100,3 +109,4 @@ Read this file first, then use `Read` with `offset` and `limit` parameters to fe
 **Parallel Work**: Lines 314-348 (Subagents)
 **Best Practices**: Lines 469-512 (Design Process)
 **All Links**: Lines 623-659 (Official Links)
+**Worker Agent**: Lines 662-715 (Autonomous PR Lifecycle)

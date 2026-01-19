@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Building an Autonomous Worker Agent: From GitHub Issue to Verified Merge</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="A detailed guide to building a production worker agent using the Claude Agent SDK that handles the complete pull request lifecycle autonomously.">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a href="index.html">← Back to Home</a>
+    </nav>
+
+    <article>
+      <header>
+        <h1>Building an Autonomous Worker Agent: From GitHub Issue to Verified Merge</h1>
+        <div class="meta">
+          <span class="meta-item">Reading time: 18 min</span>
+          <span class="meta-item">~3,500 words</span>
+          <span class="meta-item">Updated: January 2026</span>
+        </div>
+        <div style="margin-top: 1rem;">
+          <span class="tag">Worker Agent</span>
+          <span class="tag">Python</span>
+          <span class="tag">Git Worktrees</span>
+          <span class="tag">GitHub</span>
+          <span class="tag">CI/CD</span>
+          <span class="tag">Production</span>
+        </div>
+      </header>
+
+      <section>
+        <p>The previous essay explored what the Claude Agent SDK is and why you might use it. This essay gets specific. We will build a worker agent that handles the complete lifecycle of a GitHub issue: from reading the issue description through implementing the feature, creating a pull request, responding to code review feedback, passing continuous integration checks, merging, and finally verifying that the main branch build succeeds after the merge.</p>
+
+        <p>This is not a toy example. This is the kind of agent that changes how software teams operate. Instead of a developer manually shepherding each pull request through review and merge, the worker agent handles that entire process autonomously while the developer moves on to other work.</p>
+      </section>
+
+      <section>
+        <h2>The Problem with One-Shot Workers</h2>
+
+        <p>Many teams have experimented with using AI coding assistants to implement features. The typical pattern looks something like this: a human reads a GitHub issue, prompts an AI assistant to implement it, reviews the generated code, creates a pull request, waits for code review, addresses feedback, waits for CI, resolves merge conflicts, and finally merges. The AI helped with implementation but the human still managed the entire process.</p>
+
+        <p>A more sophisticated approach uses a manager-worker pattern. A manager Claude Code session reads issues from a backlog, spawns one-shot worker Claude Code instances as background processes, and each worker implements a single feature on its own branch. The workers create pull requests when finished. This parallelizes the implementation work. But it leaves a gap.</p>
+
+        <p>The gap is everything that happens after the pull request is created. Code review feedback arrives. CI checks run and sometimes fail. Merge conflicts appear as other work lands on main. Someone needs to address all of this. In the one-shot worker pattern, that someone is the manager. The manager must monitor every pull request, read every code review, spawn new workers to address feedback, check CI status, and orchestrate merges. The manager becomes a bottleneck.</p>
+
+        <p>The worker agent we build here closes that gap. Instead of implementing and walking away, the worker agent owns the entire pull request lifecycle. It watches for code review feedback from the Claude GitHub integration. It addresses blocking feedback by fixing the code and pushing updates. It creates follow-up GitHub issues for non-blocking suggestions rather than ignoring them. It monitors CI and fixes failures. It resolves simple merge conflicts through rebasing. It merges when everything turns green. And critically, it watches the main branch build after merging to verify it did not break anything.</p>
+
+        <p>If the main branch build fails after a merge, the worker agent reports back to the manager. The manager can then create a new issue to fix main, and potentially spawn another worker to handle that issue. The system becomes self-healing.</p>
+      </section>
+
+      <section>
+        <h2>Why Python for the Worker Agent</h2>
+
+        <p>The Claude Agent SDK offers both Python and TypeScript implementations. For this worker agent, Python is the right choice. The reasoning comes down to what each language excels at.</p>
+
+        <p>TypeScript shines for web applications. If you are building a user interface, an API server, or anything that runs in the browser or serves HTTP requests, TypeScript with its ecosystem of web frameworks provides an excellent developer experience. The choose-your-own-adventure production app described earlier would be TypeScript because it is a web application.</p>
+
+        <p>Python excels at tooling, scripts, build automation, wrappers around command-line interfaces and APIs, and now agents. The worker agent is fundamentally a command-line tool that orchestrates other tools: git for version control, the GitHub API for pull requests and issues, the file system for status tracking, and the Claude Agent SDK for intelligent code generation. Python's simplicity and rich ecosystem for these tasks makes it the natural choice.</p>
+
+        <p>This is not a hard rule. You could build the worker agent in TypeScript. But Python's strengths align better with what the worker agent does.</p>
+      </section>
+
+      <section>
+        <h2>Git Worktrees for Parallel Isolation</h2>
+
+        <p>When multiple worker agents run simultaneously, they cannot share a working directory. If two agents try to edit the same files in the same checkout, they will corrupt each other's work. Traditional solutions involve cloning the repository multiple times, but this wastes disk space and complicates setup.</p>
+
+        <p>Git worktrees solve this elegantly. A worktree is an additional working directory attached to a single repository. Each worktree can have a different branch checked out. They share the same git history and objects, so there is no duplication of the repository data. But each worktree has its own working files, its own index, and its own HEAD pointer.</p>
+
+        <p>For the worker agent, this means each agent creates its own worktree when it starts. The worktree lives in a dedicated directory, typically something like <code>.worktrees/issue-42</code> for issue number 42. The agent creates a branch named <code>worker/issue-42</code>, does all its work in that worktree, and cleans up the worktree when finished.</p>
+
+        <p>This isolation enables true parallelism. You can run ten worker agents simultaneously, each working on a different issue, each in its own worktree, without any conflicts. The manager can spawn workers freely without worrying about coordination. When agents push to the remote, their branches are distinct. When they create pull requests, those requests target their specific branches.</p>
+
+        <p>One practical detail: each worktree needs its own dependency installation. If the project uses npm, the agent runs <code>npm install</code> in the worktree. If it uses Python with uv, the agent runs <code>uv sync</code>. This adds some setup time but ensures complete isolation.</p>
+      </section>
+
+      <section>
+        <h2>The Worker Agent Architecture</h2>
+
+        <p>The worker agent consists of several components that collaborate to manage the pull request lifecycle.</p>
+
+        <p>The <strong>StatusManager</strong> handles all logging and status persistence. Every action the agent takes gets logged with timestamps and severity levels. The status file, written as JSON, provides a complete picture of what the agent is doing: its current phase, which commits it has made, whether it has created a pull request, what the review status is, what CI status is, and the full log of its activities. External tools can read this status file to monitor the agent. The manager can poll status files to know what all its workers are doing.</p>
+
+        <p>The <strong>GitManager</strong> handles all git operations. It creates and manages the worktree, commits changes with descriptive messages, pushes to the remote, checks for merge conflicts, attempts rebases, and cleans up when finished. All git operations go through this component, ensuring consistent error handling and logging.</p>
+
+        <p>The <strong>GitHubManager</strong> handles all GitHub API operations. It reads issue details to understand what needs to be implemented. It creates pull requests with proper titles and descriptions that reference the original issue. It polls for reviews from the Claude GitHub integration. It reads review comments and categorizes them as blocking or non-blocking. It checks CI status by querying both the combined status API and the check runs API. It creates follow-up issues for non-blocking feedback. It merges pull requests when everything is green. It watches the main branch build after merge.</p>
+
+        <p>The <strong>WorkerAgent</strong> class orchestrates everything. It implements the state machine that moves through phases: initializing, implementing, validating, creating the pull request, awaiting review, addressing feedback, checking CI, resolving conflicts, merging, and verifying main. At each phase, it delegates to the appropriate manager and decides what to do next based on results.</p>
+
+        <p>Finally, the <strong>CLI</strong> provides the command-line interface. You can run a worker for a specific issue, check the status of a running worker, or list all workers. The CLI handles configuration through environment variables and command-line options, making it easy to integrate into different environments.</p>
+      </section>
+
+      <section>
+        <h2>Using Claude Agent SDK for Implementation</h2>
+
+        <p>The core of the worker agent is using the Claude Agent SDK to actually implement features. When the agent reaches the implementation phase, it constructs a prompt that includes the issue title and description, and asks Claude to implement the feature.</p>
+
+        <p>The prompt is specific about what Claude should do. Read the existing codebase to understand structure and patterns. Implement the feature. Write or update tests. Commit frequently with descriptive messages. Do not modify lint, typecheck, or test configuration unless absolutely necessary. Follow existing code style.</p>
+
+        <p>This last point deserves emphasis. One of the most frustrating behaviors of AI coding assistants is their tendency to "improve" things they were not asked to improve. An assistant implementing a feature might decide to also update the ESLint configuration, change the TypeScript compiler options, or modify the test framework setup. These changes might be well-intentioned but they create problems. They are out of scope for the issue. They have not been reviewed or approved. They might break other things. They make the pull request harder to review because it mixes feature work with configuration changes.</p>
+
+        <p>The worker agent explicitly instructs Claude to avoid this. If Claude believes configuration changes are genuinely needed, it should explain why but not make the changes. The worker agent can then notify the manager, who can decide whether to approve the configuration changes through a separate, deliberate process.</p>
+
+        <p>The Claude Agent SDK configuration grants Claude access to the tools it needs: Read and Write for file operations, Edit for modifications, Glob and Grep for searching, and Bash for running commands. The permission mode is set to accept edits, which auto-approves file operations so the agent can work autonomously. The working directory is set to the worktree path so Claude operates in the isolated environment.</p>
+      </section>
+
+      <section>
+        <h2>Local Validation Before Pull Request</h2>
+
+        <p>The agent does not create a pull request immediately after implementation. First, it runs local validation: lint, typecheck, and tests. This catches obvious problems before they reach CI, providing faster feedback and avoiding wasted CI resources.</p>
+
+        <p>For a Node.js project, this means running <code>npm run lint</code>, <code>npm run typecheck</code>, and <code>npm test</code>. For a Python project, it means running <code>ruff check</code> for linting, <code>mypy</code> for type checking, and <code>pytest</code> for tests. The agent detects which kind of project it is working with by checking for package.json or pyproject.toml.</p>
+
+        <p>If validation fails, the agent does not give up. It uses Claude again to read the error output and fix the issues. The prompt specifically instructs Claude to fix code issues without modifying configuration. The agent then re-runs validation to verify the fixes worked. Only after validation passes does the agent proceed to create the pull request.</p>
+
+        <p>This validation loop can repeat multiple times if needed, up to a configurable retry limit. Most validation failures are straightforward: a missing import, a type error, a failing test. Claude can usually fix these on the first try. But if the agent exhausts its retries, it marks itself as blocked and notifies the manager. Something unusual is happening that requires human attention.</p>
+      </section>
+
+      <section>
+        <h2>The Review and Merge Loop</h2>
+
+        <p>After creating the pull request, the agent enters a loop that handles code review, CI, and merge. This loop is where the worker agent provides the most value over one-shot approaches.</p>
+
+        <p>First, the agent waits for the Claude GitHub integration to review the pull request. It polls the GitHub API, looking for reviews from bot accounts or accounts with "claude" or "anthropic" in the name. When a review arrives, the agent reads its state and comments.</p>
+
+        <p>If the review requests changes, the agent categorizes each comment. Comments containing words like "must", "required", "blocking", or "security" are treated as blocking. The agent must address these before proceeding. Other comments are non-blocking suggestions.</p>
+
+        <p>For non-blocking suggestions, the agent creates follow-up GitHub issues. These issues reference the original issue and pull request, quote the feedback, and are labeled appropriately. This ensures good suggestions are not lost while allowing the current work to proceed. A future worker can pick up these follow-up issues and address them.</p>
+
+        <p>For blocking feedback, the agent uses Claude again to address the issues. It constructs a prompt that includes the specific feedback and asks Claude to fix the problems. After fixing, it commits and pushes, which triggers a new review cycle.</p>
+
+        <p>When the review is approved or has only non-blocking comments, the agent checks CI status. It queries both the combined status API (for status checks) and the check runs API (for GitHub Actions). If CI is still running, the agent waits. If CI fails, the agent uses Claude to try to fix the failures, commits, pushes, and waits for the new CI run.</p>
+
+        <p>Before merging, the agent checks for merge conflicts. If the pull request cannot be merged cleanly because main has diverged, the agent attempts to rebase. Simple rebases usually succeed automatically. If the rebase fails due to complex conflicts, the agent marks itself as blocked. Manual conflict resolution is beyond what the agent should attempt autonomously.</p>
+
+        <p>When CI passes, the review is acceptable, and there are no conflicts, the agent merges using squash merge. All the commits from the branch are combined into a single commit on main, keeping the history clean.</p>
+      </section>
+
+      <section>
+        <h2>Verifying the Main Branch</h2>
+
+        <p>The agent's job is not done when the pull request merges. A merge can succeed locally but break the main branch build. This happens when the branch was compatible with an older version of main but incompatible with recent changes, or when the merge itself introduces subtle issues.</p>
+
+        <p>After merging, the agent watches the main branch build. It polls the CI status for the main branch, waiting for all checks to complete. If the build succeeds, the agent marks itself as completed and notifies the manager of success.</p>
+
+        <p>If the main branch build fails, something is wrong. The worker agent cannot simply fix this like it fixed its own branch. The failure might involve code from other pull requests. The fix might require reverting the merge or understanding interactions with other changes. This requires manager judgment.</p>
+
+        <p>So the agent sends a specific notification: main branch failed. This notification includes the pull request number and issue number, giving the manager context to investigate. The manager might create a new high-priority issue to fix main and spawn a worker to address it. The manager might revert the problematic merge. The decision depends on the specific situation.</p>
+
+        <p>This feedback loop closes the gap that plagues many automated systems. The automation does not just fire and forget. It watches for consequences and reports problems. The human remains in control but does not have to actively monitor everything. They get notified when their attention is needed.</p>
+      </section>
+
+      <section>
+        <h2>Monitoring and Communication</h2>
+
+        <p>An autonomous agent running in the background must be observable. The worker agent provides multiple monitoring mechanisms.</p>
+
+        <p>The status file is the primary mechanism. Written as JSON to a predictable location, it contains everything about the agent's state. External tools can read this file to build dashboards, send alerts, or integrate with other systems. The CLI includes commands to read and display status files in a human-friendly format.</p>
+
+        <p>Logs within the status file provide a timeline of everything the agent has done. Each log entry includes a timestamp, severity level, and message. Reviewing the logs shows exactly what happened, in what order, and when.</p>
+
+        <p>The notification file provides a communication channel from workers to the manager. Workers append notifications when significant events occur: status updates, permission requests, being blocked, completing, failing, or discovering that main failed. The manager can poll this file to know what is happening across all workers.</p>
+
+        <p>Git itself provides visibility. Each commit the agent makes is visible in the branch history. Frequent commits with descriptive messages show exactly what changes the agent made and when. The pull request on GitHub shows all activity: the initial creation, pushes in response to feedback, CI runs, and the final merge.</p>
+
+        <p>Together, these mechanisms ensure the agent is never a black box. You can always see what it is doing, what it has done, and why it made the decisions it made.</p>
+      </section>
+
+      <section>
+        <h2>Configuration and Deployment</h2>
+
+        <p>The worker agent is configured through environment variables and command-line options. The most important configuration is the GitHub token, which must have permissions to read issues, create pull requests, push branches, and merge. Repository information can come from the GITHUB_REPOSITORY environment variable or the --repo command-line option.</p>
+
+        <p>Directory configuration specifies where to create worktrees, where to write status files, and optionally where to write manager notifications. These directories should be on the same filesystem as the repository to enable efficient worktree creation.</p>
+
+        <p>Behavior configuration controls retry limits, timeout durations, coverage thresholds, and whether to auto-merge. Conservative defaults ensure the agent does not run forever or merge things it should not. You can adjust these based on your repository's specific needs.</p>
+
+        <p>Deployment is straightforward for a Python command-line tool. Install the dependencies with uv, ensure the Claude Code CLI is available, set the necessary environment variables, and run the worker command. The agent can run on a developer's machine, in a CI environment, or on a dedicated build server. It just needs network access to GitHub and the Anthropic API.</p>
+      </section>
+
+      <section>
+        <h2>The Manager's Perspective</h2>
+
+        <p>From the manager's perspective, the worker agent dramatically simplifies coordination. Instead of spawning one-shot workers and then manually monitoring every pull request, the manager spawns worker agents and waits for notifications.</p>
+
+        <p>A typical manager workflow: read the backlog of GitHub issues, select issues to work on, spawn a worker agent for each selected issue, then move on to other work. Periodically check the notification file or status directory to see progress. When a worker completes, its issue is done. When a worker is blocked, investigate and help. When main fails after a merge, create a fix issue and spawn a worker for it.</p>
+
+        <p>The manager stays in a single context window because it is not doing the actual implementation work. It is not writing code, not reading large files, not running commands. It is just orchestrating. This keeps the manager session focused and efficient.</p>
+
+        <p>The human developer's role shifts to higher-level decisions. Which issues should be prioritized? What should the overall architecture look like? Are the pull requests actually implementing what was intended? The mechanical work of shepherding code through review and merge is handled by the agents.</p>
+      </section>
+
+      <section>
+        <h2>Modern Python Tooling</h2>
+
+        <p>The worker agent uses modern Python development tools that represent current best practices as of 2025 and 2026.</p>
+
+        <p>For project management and dependencies, it uses uv. This tool handles virtual environments, dependency resolution, and package installation significantly faster than pip. The pyproject.toml file serves as the single source of truth for project configuration, dependencies, and tool settings.</p>
+
+        <p>For linting, it uses ruff. Ruff is an extremely fast Python linter written in Rust that can replace multiple tools: flake8, isort, pyupgrade, and more. It catches common errors and style issues nearly instantly.</p>
+
+        <p>For type checking, it uses mypy with strict mode. Python's type hints combined with strict checking catch many bugs before runtime. The worker agent code is fully typed, making it easier to understand and maintain.</p>
+
+        <p>For testing, it uses pytest with pytest-asyncio for async test support and pytest-cov for coverage reporting. The pyproject.toml configures a coverage threshold, ensuring the agent code itself is well-tested.</p>
+
+        <p>All configuration lives in pyproject.toml. There is no requirements.txt, no setup.py, no separate configuration files for each tool. This consolidation reduces complexity and makes the project easier to understand and maintain.</p>
+      </section>
+
+      <section>
+        <h2>What the Agent Does Not Do</h2>
+
+        <p>Understanding what the worker agent does not do is as important as understanding what it does.</p>
+
+        <p>The agent does not make architectural decisions. It implements features as described in issues. If an issue is unclear or requires design decisions, the agent should not proceed. The issue description should be detailed enough that implementation is deterministic.</p>
+
+        <p>The agent does not modify build configuration without permission. If lint rules, TypeScript settings, test configuration, or CI workflows need changes, the agent flags this for human review. These changes affect the entire project and deserve deliberate consideration.</p>
+
+        <p>The agent does not force push or rewrite public history. It creates new commits, pushes them, and squash merges. It never does anything that would disrupt other developers working on the same repository.</p>
+
+        <p>The agent does not handle complex merge conflicts. Simple rebases work. Complex conflicts that require understanding how different changes interact are flagged for human resolution.</p>
+
+        <p>The agent does not decide what to work on. The manager decides priorities and selects issues. The agent executes. This separation keeps humans in control of the important decisions while automating the mechanical work.</p>
+      </section>
+
+      <section>
+        <h2>Where This Goes Next</h2>
+
+        <p>The worker agent described here is a foundation. It handles the common case well: implement a feature, get it reviewed, merge it. Many extensions are possible.</p>
+
+        <p>Integration with project management tools could automatically move issues through workflow stages as the agent progresses. Integration with chat systems could notify the team when significant events occur. Integration with metrics systems could track how long issues take, how many review cycles are needed, and how often main fails after merge.</p>
+
+        <p>More sophisticated review handling could parse specific types of feedback and respond appropriately. Security-related feedback might trigger additional analysis. Performance-related feedback might trigger benchmarking.</p>
+
+        <p>Multiple agents working on related issues might coordinate to avoid conflicts. If two agents are modifying the same file, one could wait for the other to merge first.</p>
+
+        <p>The core pattern, however, remains: autonomous agents that own complete workflows, report their status continuously, and escalate to humans when needed. This pattern works for many kinds of automation, not just pull request management. The Claude Agent SDK provides the foundation. What you build on it depends on your specific needs.</p>
+      </section>
+
+      <section>
+        <h2>Source Code</h2>
+
+        <p>The complete worker agent implementation is available in the <code>agents/worker-agent</code> directory of this repository. It includes:</p>
+
+        <div class="links-grid">
+          <div class="link-item"><code>pyproject.toml</code> - Project configuration with all dependencies</div>
+          <div class="link-item"><code>src/worker_agent/models.py</code> - Pydantic models for status, config, notifications</div>
+          <div class="link-item"><code>src/worker_agent/status_manager.py</code> - Logging and status persistence</div>
+          <div class="link-item"><code>src/worker_agent/git_manager.py</code> - Git and worktree operations</div>
+          <div class="link-item"><code>src/worker_agent/github_manager.py</code> - GitHub API operations</div>
+          <div class="link-item"><code>src/worker_agent/agent.py</code> - Main agent orchestration</div>
+          <div class="link-item"><code>src/worker_agent/cli.py</code> - Command-line interface</div>
+        </div>
+      </section>
+    </article>
+
+    <footer>
+      <p>This documentation site accompanies the Claude Agent SDK. For official documentation, visit <a href="https://platform.claude.com/docs/en/agent-sdk/overview">Anthropic's documentation</a>.</p>
+    </footer>
+  </div>
+</body>
+</html>
