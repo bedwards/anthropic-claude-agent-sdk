@@ -479,3 +479,257 @@ body {
     background-position: 100% 50%;
   }
 }
+
+/* Skeleton Loading */
+.choices.loading {
+  flex-direction: column;
+  align-items: stretch;
+  min-height: auto;
+}
+
+.choice-skeleton {
+  background: var(--color-bg-hover);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  margin-bottom: var(--spacing-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-text {
+  height: 20px;
+  background: var(--color-bg-card);
+  border-radius: 4px;
+  width: 70%;
+}
+
+.skeleton-shimmer {
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.05),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  100% {
+    left: 100%;
+  }
+}
+
+.loading-hint {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  text-align: center;
+  margin-top: var(--spacing-md);
+  font-style: italic;
+}
+
+/* Choices Header */
+.choices-header {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  font-weight: normal;
+  margin-bottom: var(--spacing-md);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* AI Badge */
+.choice-badge {
+  display: inline-block;
+  background: var(--color-accent);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: bold;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-right: var(--spacing-sm);
+  vertical-align: middle;
+}
+
+.ai-choice {
+  position: relative;
+}
+
+/* Custom Choice Input */
+.custom-choice {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-bg-hover);
+}
+
+.custom-choice input {
+  flex: 1;
+  background: var(--color-bg);
+  border: 2px solid var(--color-bg-hover);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text);
+  font-size: 1rem;
+  font-family: var(--font-primary);
+  transition: border-color var(--transition-normal);
+}
+
+.custom-choice input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.custom-choice input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.custom-choice .btn {
+  padding: var(--spacing-sm) var(--spacing-lg);
+}
+
+/* Branches */
+.branches {
+  margin-top: var(--spacing-xl);
+  padding-top: var(--spacing-lg);
+  border-top: 2px solid var(--color-bg-hover);
+}
+
+.branches-header {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  font-weight: normal;
+  margin-bottom: var(--spacing-md);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.branch-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.branch-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--color-bg);
+  border: 1px solid var(--color-bg-hover);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-sm) var(--spacing-md);
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  text-align: left;
+}
+
+.branch-btn:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+
+.branch-tagline {
+  flex: 1;
+}
+
+.branch-arrow {
+  color: var(--color-accent);
+  margin-left: var(--spacing-sm);
+}
+
+/* Generating State */
+.generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2xl);
+  text-align: center;
+}
+
+.generating p {
+  margin-top: var(--spacing-md);
+  color: var(--color-text);
+}
+
+.generating .loading-hint {
+  margin-top: var(--spacing-sm);
+  font-size: 0.85rem;
+}
+
+/* Loading Screen */
+.loading-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.loading-screen p {
+  margin-top: var(--spacing-lg);
+  color: var(--color-text-muted);
+}
+
+/* Error Screen */
+.error-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.error-screen h2 {
+  color: var(--color-danger);
+  margin-bottom: var(--spacing-md);
+}
+
+.error-screen p {
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* Error Message (inline) */
+.error-message {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--border-radius);
+  padding: var(--spacing-lg);
+  text-align: center;
+}
+
+.error-message p {
+  color: var(--color-danger);
+  margin-bottom: var(--spacing-md);
+}
+
+/* Toast */
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-accent);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 200;
+  animation: fadeIn 0.3s ease;
+}
+
+.toast.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
