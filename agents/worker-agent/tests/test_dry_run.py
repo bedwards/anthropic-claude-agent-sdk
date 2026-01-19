@@ -291,6 +291,50 @@ class TestDryRunGitHubManager:
         assert any("Would merge PR" in msg for msg in log_messages)
 
 
+class TestDryRunCLI:
+    """Test dry-run CLI behavior."""
+
+    def test_status_command_shows_dry_run(
+        self, dry_run_config: WorkerConfig, tmp_path: Path
+    ) -> None:
+        """Test that status command displays dry-run mode."""
+        import json
+
+        from typer.testing import CliRunner
+
+        from worker_agent.cli import app
+
+        runner = CliRunner()
+
+        # Create a status file with dry_run=True
+        status_file = dry_run_config.status_dir / "worker-42.json"
+        status_file.parent.mkdir(parents=True, exist_ok=True)
+        status_data = {
+            "pid": 12345,
+            "issue_number": 42,
+            "branch": "worker/issue-42",
+            "worktree_path": "/tmp/worktree",
+            "phase": "implementing",
+            "started_at": "2025-01-01T00:00:00",
+            "updated_at": "2025-01-01T00:01:00",
+            "dry_run": True,
+            "commits": [],
+            "logs": [],
+            "created_issues": [],
+            "main_branch_verified": False,
+        }
+        status_file.write_text(json.dumps(status_data))
+
+        # Run status command
+        result = runner.invoke(
+            app, ["status", "42", "--status-dir", str(dry_run_config.status_dir)]
+        )
+
+        assert result.exit_code == 0
+        assert "DRY-RUN" in result.stdout
+        assert "simulated" in result.stdout.lower()
+
+
 class TestDryRunAgent:
     """Test dry-run agent behavior."""
 

@@ -160,6 +160,11 @@ def status(
 
     console.print(f"[bold]Worker Status for Issue #{issue_number}[/bold]")
     console.print(f"PID: {data['pid']}")
+
+    # Show dry-run mode prominently if enabled
+    if data.get("dry_run"):
+        console.print("[bold yellow]Mode: DRY-RUN (simulated)[/bold yellow]")
+
     console.print(f"Phase: {data['phase']}")
     console.print(f"Branch: {data['branch']}")
     console.print(f"Started: {data['started_at']}")

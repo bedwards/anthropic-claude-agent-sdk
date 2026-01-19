@@ -11,6 +11,10 @@ from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
 from .dry_run_managers import DryRunGitHubManager, DryRunGitManager
 from .git_manager import GitManager
 from .github_manager import GitHubManager
+
+# Type alias for managers that can be either normal or dry-run
+GitManagerType = GitManager | DryRunGitManager
+GitHubManagerType = GitHubManager | DryRunGitHubManager
 from .models import (
     CIStatus,
     LogLevel,
@@ -42,8 +46,8 @@ class WorkerAgent:
 
         # Managers will be initialized in run()
         self.status_manager: StatusManager | None = None
-        self.git_manager: GitManager | None = None
-        self.github_manager: GitHubManager | None = None
+        self.git_manager: GitManagerType | None = None
+        self.github_manager: GitHubManagerType | None = None
 
     async def run(self) -> bool:
         """

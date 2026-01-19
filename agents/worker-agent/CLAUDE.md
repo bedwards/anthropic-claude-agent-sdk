@@ -23,11 +23,46 @@ This agent is invoked by a manager Claude Code session to handle the complete li
 # Run worker for an issue
 worker run 42 --repo owner/repo
 
+# Run in dry-run mode (simulate without making actual changes)
+worker run 42 --repo owner/repo --dry-run
+
 # Check status
 worker status 42
 
 # List all workers
 worker list-workers
+```
+
+### Dry-Run Mode
+
+Dry-run mode simulates the full worker agent lifecycle without making actual changes:
+
+**What is simulated:**
+- Git operations (commit, push, rebase) - logged but not executed
+- GitHub API writes (PR creation, merging, issue creation) - no actual API calls
+- Claude SDK interactions - mocked with simulated responses
+- All phases of the lifecycle with realistic timing
+
+**What still happens:**
+- Worktree directory is created (for file operations)
+- GitHub reads are allowed (fetching issue details)
+- Status file is written with `dry_run: true` flag
+- Detailed logging of all simulated actions with `[DRY-RUN]` prefix
+
+**Use cases:**
+- Test configuration before real runs
+- Debug agent behavior without side effects
+- Training and demonstrations
+- Verify issue parsing and workflow logic
+
+**Example:**
+```bash
+# Test the agent on issue #12
+worker run 12 --repo myorg/myrepo --dry-run
+
+# Check the simulated status
+worker status 12
+# Output will show: Mode: DRY-RUN (simulated)
 ```
 
 ## Configuration
@@ -43,6 +78,7 @@ CLI options:
 - `--notification-file`: File for manager notifications
 - `--auto-merge`: Auto-merge when checks pass
 - `--coverage-threshold`: Minimum coverage percentage
+- `--dry-run`: Simulate without making actual changes (no git pushes or GitHub writes)
 
 ## Monitoring
 
