@@ -5,7 +5,6 @@
 import './styles/main.css';
 import { api, type StoryNode, type StoryData } from './api/client';
 
-const DEFAULT_STORY = 'dragon-adventure';
 const SAVE_KEY_PREFIX = 'cyoa-save-';
 
 interface SaveData {
@@ -76,12 +75,8 @@ class App {
       return;
     }
 
-    // Legacy format - just node ID, use default story
-    if (hash && this.currentStoryId === null) {
-      this.currentStoryId = DEFAULT_STORY;
-      this.currentNodeId = hash;
-      await this.loadStory(DEFAULT_STORY);
-    }
+    // Invalid hash format - redirect to home
+    window.location.hash = 'home';
   }
 
   private async showHomePage(): Promise<void> {
