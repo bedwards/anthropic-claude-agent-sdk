@@ -15,6 +15,7 @@ class App {
   private history: string[] = [];
   private nodesMap: Map<string, StoryNode> = new Map();
   private isLoading: boolean = false;
+  private hashChangeListenerAdded: boolean = false;
 
   constructor() {
     this.container = document.getElementById('app')!;
@@ -29,19 +30,27 @@ class App {
     if (storyId) {
       // Load specific story
       await this.loadStory(storyId);
-
-      // Listen for hash changes
-      window.addEventListener('hashchange', () => {
-        const newHash = window.location.hash.slice(1);
-        if (newHash && newHash !== this.currentNodeId) {
-          this.currentNodeId = newHash;
-          this.renderCurrentNode();
-        }
-      });
     } else {
       // Show home page
       this.showHomePage();
     }
+  }
+
+  private setupHashChangeListener(): void {
+    // Only add the listener once
+    if (this.hashChangeListenerAdded) {
+      return;
+    }
+
+    window.addEventListener('hashchange', () => {
+      const newHash = window.location.hash.slice(1);
+      if (newHash && newHash !== this.currentNodeId) {
+        this.currentNodeId = newHash;
+        this.renderCurrentNode();
+      }
+    });
+
+    this.hashChangeListenerAdded = true;
   }
 
   private showHomePage(): void {
@@ -97,9 +106,11 @@ class App {
       return;
     }
 
-    // Update URL
-    window.location.search = `?story=${storyId}`;
-    window.location.hash = saveData.nodeId;
+    // Update URL without reloading
+    const url = new URL(window.location.href);
+    url.searchParams.set('story', storyId);
+    url.hash = saveData.nodeId;
+    history.replaceState(null, '', url);
 
     this.showLoading('Loading saved game...');
 
@@ -115,14 +126,8 @@ class App {
       this.history = saveData.history;
       this.currentNodeId = saveData.nodeId;
 
-      // Listen for hash changes
-      window.addEventListener('hashchange', () => {
-        const newHash = window.location.hash.slice(1);
-        if (newHash && newHash !== this.currentNodeId) {
-          this.currentNodeId = newHash;
-          this.renderCurrentNode();
-        }
-      });
+      // Setup hash change listener (only once)
+      this.setupHashChangeListener();
 
       this.renderCurrentNode();
       this.showToast('Game loaded!');
@@ -136,9 +141,11 @@ class App {
     // Clear any existing save
     SaveManager.deleteSave(storyId);
 
-    // Update URL
-    window.location.search = `?story=${storyId}`;
-    window.location.hash = '';
+    // Update URL without reloading
+    const url = new URL(window.location.href);
+    url.searchParams.set('story', storyId);
+    url.hash = '';
+    history.replaceState(null, '', url);
 
     await this.loadStory(storyId);
   }
@@ -160,14 +167,8 @@ class App {
         this.currentNodeId = this.storyData.meta.startNodeId;
       }
 
-      // Listen for hash changes
-      window.addEventListener('hashchange', () => {
-        const newHash = window.location.hash.slice(1);
-        if (newHash && newHash !== this.currentNodeId) {
-          this.currentNodeId = newHash;
-          this.renderCurrentNode();
-        }
-      });
+      // Setup hash change listener (only once)
+      this.setupHashChangeListener();
 
       this.renderCurrentNode();
     } catch (error) {
