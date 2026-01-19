@@ -83,6 +83,27 @@ Read("docs-for-claude/claude-agent-sdk-knowledge.md", offset=137, limit=63)
 
 The root `.gitignore` covers these patterns. Always verify before committing.
 
+## Development Process
+
+**CRITICAL: Never write code directly. Always use our process:**
+
+1. **Create GitHub Issues** - All implementation work starts as a GitHub issue with detailed requirements
+2. **Worker Agent Implements** - The worker agent (`agents/worker-agent/`) handles the actual coding
+3. **Manager Role** - Claude in conversation acts as manager: creates issues, reviews PRs, coordinates
+
+**Why this process:**
+- Isolation: Worker runs in separate worktree, can't break main
+- Visibility: All work tracked in GitHub issues and PRs
+- Recovery: If worker fails, work is preserved in branch
+- Review: Claude GitHub integration reviews all PRs
+
+**Manager responsibilities:**
+- Analyze requirements and create well-specified issues
+- Monitor worker progress
+- Review PR feedback and guide worker responses
+- Create follow-up issues for additional work
+- NEVER write implementation code directly
+
 ## Workflow
 
 - Always commit and push after every change
@@ -177,3 +198,49 @@ Key behaviors:
 - Should check if PR exists before creating (handle 422)
 - Need better error recovery on failures
 - Cleanup on crash/interrupt incomplete
+
+## Claude Agent SDK Lessons Learned (War Stories)
+
+Real-world lessons from building with the Claude Agent SDK:
+
+### Process Discipline
+
+1. **Manager vs Worker Separation** - The conversational Claude should NEVER write implementation code. Create issues, let worker agents implement. This prevents scope creep and ensures all work is tracked.
+
+2. **Don't Remove Functionality** - When adding features, expand existing code rather than replacing it. Easy to accidentally break things during "simplification."
+
+3. **Maintain Broad Perspective** - Easy to get tunnel vision on one feature. Keep the whole system in mind.
+
+### Technical Lessons
+
+1. **Git Worktrees for Isolation** - Workers operate in worktrees so failures don't affect main branch. Essential for autonomous operation.
+
+2. **Frequent Commits** - Worker should commit after each significant change. Enables recovery and visibility.
+
+3. **Local Validation First** - Run lint/typecheck/tests locally before pushing. Faster feedback than CI.
+
+4. **Handle API Rate Limits** - GitHub API has rate limits. Worker needs backoff logic.
+
+### Claude Agent SDK Specifics
+
+1. **Tool Results Are Rich** - Tool results can include system reminders and context. Parse carefully.
+
+2. **Context Windows Fill Up** - Long conversations get compacted. Maintain external state (todo lists, issue descriptions) rather than relying on conversation memory.
+
+3. **Parallel Tool Calls** - Use parallel tool calls when operations are independent. Significant speedup.
+
+4. **Subagent Spawning** - Task tool spawns subagents for complex work. Each subagent is fresh context.
+
+### What Works Well
+
+- GitHub Issues as source of truth for requirements
+- Worker agent handling full PR lifecycle
+- Claude GitHub integration for automated review
+- Structured logging for debugging autonomous workers
+
+### What's Tricky
+
+- Error recovery when worker hits unexpected states
+- Balancing autonomy with user oversight
+- Managing context across long conversations
+- Testing async/autonomous behaviors
