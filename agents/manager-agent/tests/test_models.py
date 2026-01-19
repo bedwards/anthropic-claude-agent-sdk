@@ -3,15 +3,12 @@
 from datetime import datetime
 from pathlib import Path
 
-import pytest
-
 from manager_agent.models import (
     Escalation,
     IssueComplexity,
     IssueInfo,
     IssueStatus,
     ManagerConfig,
-    ManagerStatus,
     WorkerInfo,
     WorkerState,
 )

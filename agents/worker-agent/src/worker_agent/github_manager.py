@@ -9,7 +9,6 @@ from datetime import datetime
 
 from github import Github
 from github.GithubException import GithubException
-from github.PullRequest import PullRequest
 
 from .models import (
     CIStatus,

@@ -4,8 +4,6 @@ Handles blocked workers, failures, and notifications.
 """
 
 import json
-from datetime import datetime
-from pathlib import Path
 
 from .models import (
     Escalation,
@@ -33,7 +31,7 @@ class EscalationHandler:
             # Append to escalation file
             with open(self.config.escalation_file, "a") as f:
                 f.write(escalation.model_dump_json() + "\n")
-        except IOError as e:
+        except OSError as e:
             print(f"Failed to write escalation: {e}")
 
     def escalate_blocked(self, worker: WorkerInfo, issue: IssueInfo) -> Escalation:

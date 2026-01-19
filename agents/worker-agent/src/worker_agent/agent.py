@@ -3,9 +3,6 @@ Main worker agent implementation using Claude Agent SDK.
 Handles full PR lifecycle from issue to merge to main branch verification.
 """
 
-import asyncio
-from pathlib import Path
-
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import AssistantMessage, ResultMessage, TextBlock
 
@@ -15,7 +12,6 @@ from .models import (
     CIStatus,
     LogLevel,
     NotificationType,
-    ReviewStatus,
     WorkerConfig,
     WorkerPhase,
 )
@@ -287,13 +283,12 @@ Work in the current directory. Make incremental progress and commit often."""
                                 text = block.text[:200] + "..." if len(block.text) > 200 else block.text
                                 self.status_manager.log(LogLevel.DEBUG, f"Claude: {text}")
 
-                    if isinstance(message, ResultMessage):
-                        if message.is_error:
-                            self.status_manager.log(
-                                LogLevel.ERROR,
-                                f"Claude failed: {message.result}",
-                            )
-                            return False
+                    if isinstance(message, ResultMessage) and message.is_error:
+                        self.status_manager.log(
+                            LogLevel.ERROR,
+                            f"Claude failed: {message.result}",
+                        )
+                        return False
 
             # Commit any remaining changes
             await self.git_manager.commit(f"Implement feature for issue #{self.issue_number}")

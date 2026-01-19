@@ -6,7 +6,6 @@ Handles logging, status persistence, and manager notifications.
 import json
 import os
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from rich.console import Console

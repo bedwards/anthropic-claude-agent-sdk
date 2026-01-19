@@ -5,7 +5,6 @@ CLI for manager agent.
 import asyncio
 import os
 from pathlib import Path
-from typing import Optional
 
 import typer
 from dotenv import load_dotenv
@@ -40,19 +39,19 @@ def run(
         ...,
         help="Repository in owner/name format",
     ),
-    base_dir: Optional[Path] = typer.Option(
+    base_dir: Path | None = typer.Option(
         None,
         "--base-dir",
         "-b",
         help="Base directory for the repository (default: current directory)",
     ),
-    worktree_dir: Optional[Path] = typer.Option(
+    worktree_dir: Path | None = typer.Option(
         None,
         "--worktree-dir",
         "-w",
         help="Directory for git worktrees (default: .worktrees)",
     ),
-    status_dir: Optional[Path] = typer.Option(
+    status_dir: Path | None = typer.Option(
         None,
         "--status-dir",
         "-s",
@@ -75,7 +74,7 @@ def run(
         "--once",
         help="Run once and exit (for testing)",
     ),
-    auto_assign_labels: Optional[str] = typer.Option(
+    auto_assign_labels: str | None = typer.Option(
         None,
         "--auto-assign-labels",
         help="Comma-separated labels to auto-assign (default: good-first-issue,bug,enhancement)",
@@ -119,7 +118,7 @@ def run(
         auto_assign_labels=labels or ["good-first-issue", "bug", "enhancement"],
     )
 
-    console.print(f"[bold]Starting manager agent[/bold]")
+    console.print("[bold]Starting manager agent[/bold]")
     console.print(f"  Repository: {repo_owner}/{repo_name}")
     console.print(f"  Worktrees: {worktree_dir}")
     console.print(f"  Status: {status_dir}")
@@ -136,7 +135,7 @@ def run(
 
 @app.command()
 def status(
-    status_dir: Optional[Path] = typer.Option(
+    status_dir: Path | None = typer.Option(
         None,
         "--status-dir",
         "-s",
@@ -174,7 +173,6 @@ def status(
             issue = f"#{data.get('issue_number', '?')}"
             phase = data.get("phase", "unknown")
             pr_number = data.get("pr_number")
-            pr_url = data.get("pr_url")
             blocked = data.get("blocked_reason")
 
             pr_str = f"#{pr_number}" if pr_number else "-"
@@ -188,7 +186,7 @@ def status(
                 status_str = "[yellow]IN PROGRESS[/yellow]"
 
             table.add_row(issue, phase, pr_str, status_str)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             continue
 
     console.print(table)
@@ -200,7 +198,7 @@ def list_issues(
         ...,
         help="Repository in owner/name format",
     ),
-    labels: Optional[str] = typer.Option(
+    labels: str | None = typer.Option(
         None,
         "--labels",
         "-l",
