@@ -4,7 +4,7 @@
 
 import './styles/main.css';
 import { api, type StoryNode, type StoryData } from './api/client';
-import { parseHash, setRoute, type RouteParams } from './utils/routing';
+import { parseHash, setRoute } from './utils/routing';
 
 const DEFAULT_STORY = 'dragon-adventure';
 
