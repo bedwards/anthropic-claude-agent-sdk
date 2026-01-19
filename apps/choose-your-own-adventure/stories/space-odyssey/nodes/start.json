@@ -1,0 +1,11 @@
+{
+  "id": "start",
+  "title": "Distress Signal",
+  "content": "The bridge lights flash red as your ship, the Odyssey, drifts through deep space. You're three years into a colony mission when the ship's AI, NOVA, wakes you from cryosleep.\n\n\"Captain, we've detected a distress signal from the nearby Kepler-442b system. It appears to be human in origin, but our colony mission is already behind schedule. What are your orders?\"",
+  "tagline": "A mysterious distress signal interrupts your colony mission",
+  "parentNodeId": null,
+  "childNodeIds": [],
+  "generatedOptions": [],
+  "chosenOption": null,
+  "createdAt": 1737312100000
+}

@@ -1,0 +1,8 @@
+{
+  "id": "haunted-mansion",
+  "title": "The Haunted Mansion",
+  "description": "Uncover dark secrets in an abandoned Victorian manor",
+  "theme": "horror",
+  "startNodeId": "start",
+  "createdAt": 1737312200000
+}
