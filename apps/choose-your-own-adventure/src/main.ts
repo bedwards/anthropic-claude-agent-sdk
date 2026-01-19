@@ -4,12 +4,14 @@
 
 import './styles/main.css';
 import { api, type StoryNode, type StoryData } from './api/client';
+import { parseHash, setRoute, type RouteParams } from './utils/routing';
 
 const DEFAULT_STORY = 'dragon-adventure';
 
 class App {
   private container: HTMLElement;
   private storyData: StoryData | null = null;
+  private currentStoryId: string = DEFAULT_STORY;
   private currentNodeId: string = 'start';
   private history: string[] = [];
   private nodesMap: Map<string, StoryNode> = new Map();
@@ -21,22 +23,59 @@ class App {
   }
 
   private async init(): Promise<void> {
-    // Check for node ID in URL hash
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      this.currentNodeId = hash;
+    // Parse URL hash for storyId/nodeId
+    const route = parseHash(window.location.hash);
+
+    // If we have a storyId in the URL, use it
+    if (route.storyId) {
+      this.currentStoryId = route.storyId;
+      if (route.nodeId) {
+        this.currentNodeId = route.nodeId;
+      }
     }
 
-    // Listen for hash changes
+    // Listen for hash changes (browser back/forward, manual URL changes)
     window.addEventListener('hashchange', () => {
-      const newHash = window.location.hash.slice(1);
-      if (newHash && newHash !== this.currentNodeId) {
-        this.currentNodeId = newHash;
-        this.renderCurrentNode();
-      }
+      this.handleHashChange();
     });
 
-    await this.loadStory(DEFAULT_STORY);
+    try {
+      await this.loadStory(this.currentStoryId);
+    } catch (error) {
+      console.error('Failed to load story from URL:', error);
+      // Try to load default story if URL story fails
+      if (this.currentStoryId !== DEFAULT_STORY) {
+        this.currentStoryId = DEFAULT_STORY;
+        await this.loadStory(DEFAULT_STORY);
+      }
+    }
+  }
+
+  private handleHashChange(): void {
+    const route = parseHash(window.location.hash);
+
+    // Handle home navigation
+    if (!route.storyId) {
+      this.currentStoryId = DEFAULT_STORY;
+      this.history = [];
+      this.loadStory(DEFAULT_STORY);
+      return;
+    }
+
+    // If story changed, load the new story
+    if (route.storyId !== this.currentStoryId) {
+      this.currentStoryId = route.storyId;
+      this.currentNodeId = route.nodeId || 'start';
+      this.history = [];
+      this.loadStory(route.storyId);
+      return;
+    }
+
+    // Same story, different node
+    if (route.nodeId && route.nodeId !== this.currentNodeId) {
+      this.currentNodeId = route.nodeId;
+      this.renderCurrentNode();
+    }
   }
 
   private async loadStory(storyId: string): Promise<void> {
@@ -50,16 +89,22 @@ class App {
         this.nodesMap.set(node.id, node);
       }
 
-      // Initialize history with start node
-      if (!this.history.length) {
-        this.history = [this.storyData.meta.startNodeId];
+      // Validate that the current node exists in the loaded story
+      // If not, reset to start node
+      if (!this.nodesMap.has(this.currentNodeId)) {
         this.currentNodeId = this.storyData.meta.startNodeId;
+      }
+
+      // Initialize history with current node if empty
+      if (!this.history.length) {
+        this.history = [this.currentNodeId];
       }
 
       this.renderCurrentNode();
     } catch (error) {
       console.error('Failed to load story:', error);
-      this.showError('Failed to load story. Please try again.');
+      this.showError(`Failed to load story "${storyId}". Please check the URL or try again.`);
+      throw error; // Re-throw to allow init() to handle fallback
     }
   }
 
@@ -75,8 +120,8 @@ class App {
       return;
     }
 
-    // Update URL
-    window.location.hash = node.id;
+    // Update URL with storyId/nodeId format
+    setRoute(this.currentStoryId, node.id);
 
     // Render the node
     this.container.innerHTML = `
@@ -327,6 +372,8 @@ class App {
     this.container.querySelector('#home-btn')?.addEventListener('click', () => {
       this.history = [this.storyData!.meta.startNodeId];
       this.currentNodeId = this.storyData!.meta.startNodeId;
+      // Update URL and render
+      setRoute(this.currentStoryId, this.currentNodeId);
       this.renderCurrentNode();
     });
 
