@@ -3,7 +3,7 @@
  */
 
 import './styles/main.css';
-import { api, type StoryNode, type StoryData, type StoryMeta } from './api/client';
+import { api, type StoryNode, type StoryData } from './api/client';
 
 class App {
   private container: HTMLElement;
@@ -401,14 +401,14 @@ class App {
 
           <div class="story-grid">
             ${stories.map(story => `
-              <div class="story-card-preview" data-story-id="${story.id}">
+              <div class="story-card-preview" data-story-id="${this.escapeHtml(story.id)}">
                 <div class="story-icon">${this.getStoryIcon(story.theme)}</div>
                 <h2>${this.escapeHtml(story.title)}</h2>
                 <p class="story-description">${this.escapeHtml(story.description)}</p>
                 <div class="story-meta">
-                  <span class="theme-badge theme-${story.theme}">${story.theme}</span>
+                  <span class="theme-badge theme-${this.escapeHtml(story.theme)}">${this.escapeHtml(story.theme)}</span>
                 </div>
-                <button class="btn btn-primary" data-story-id="${story.id}">
+                <button class="btn btn-primary" data-story-id="${this.escapeHtml(story.id)}">
                   Start Adventure →
                 </button>
               </div>
