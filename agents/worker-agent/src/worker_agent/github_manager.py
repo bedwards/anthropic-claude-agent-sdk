@@ -4,9 +4,11 @@ Handles PRs, reviews, issues, and CI checks.
 """
 
 import asyncio
+import re
 from datetime import datetime
 
 from github import Github
+from github.GithubException import GithubException
 from github.PullRequest import PullRequest
 
 from .models import (
@@ -40,6 +42,16 @@ class GitHubManager:
             "labels": [label.name for label in issue.labels],
         }
 
+    async def get_existing_pr(self, branch: str) -> dict[str, int | str] | None:
+        """Check if a PR already exists for this branch."""
+        pulls = self.repo.get_pulls(state="open", head=f"{self.config.repo_owner}:{branch}")
+        for pr in pulls:
+            return {
+                "number": pr.number,
+                "url": pr.html_url,
+            }
+        return None
+
     async def create_pr(
         self,
         branch: str,
@@ -47,35 +59,58 @@ class GitHubManager:
         title: str,
         body: str,
     ) -> dict[str, int | str]:
-        """Create a pull request."""
+        """Create a pull request, or return existing one if already exists."""
         self.status_manager.log(LogLevel.INFO, f"Creating PR for branch {branch}")
 
-        pr = self.repo.create_pull(
-            title=f"{title} (closes #{issue_number})",
-            body=f"{body}\n\nCloses #{issue_number}\n\n---\n_Created by worker agent_",
-            head=branch,
-            base="main",
-        )
+        # Check if PR already exists for this branch
+        existing = await self.get_existing_pr(branch)
+        if existing:
+            self.status_manager.log(
+                LogLevel.INFO,
+                f"PR already exists for branch {branch}: #{existing['number']}",
+            )
+            await self.status_manager.set_pr(existing["number"], str(existing["url"]))
+            return existing
 
-        await self.status_manager.set_pr(pr.number, pr.html_url)
+        try:
+            pr = self.repo.create_pull(
+                title=f"{title} (closes #{issue_number})",
+                body=f"{body}\n\nCloses #{issue_number}\n\n---\n_Created by worker agent_",
+                head=branch,
+                base="main",
+            )
 
-        return {
-            "number": pr.number,
-            "url": pr.html_url,
-        }
+            await self.status_manager.set_pr(pr.number, pr.html_url)
+
+            return {
+                "number": pr.number,
+                "url": pr.html_url,
+            }
+        except GithubException as e:
+            if e.status == 422:
+                # PR might have been created between our check and create
+                existing = await self.get_existing_pr(branch)
+                if existing:
+                    self.status_manager.log(
+                        LogLevel.INFO,
+                        f"PR was created concurrently: #{existing['number']}",
+                    )
+                    await self.status_manager.set_pr(existing["number"], str(existing["url"]))
+                    return existing
+            raise
 
     async def get_pr_reviews(self, pr_number: int) -> list[PRReview]:
         """Get PR reviews, filtering for Claude GitHub integration."""
         pr = self.repo.get_pull(pr_number)
         reviews = list(pr.get_reviews())
-        comments = list(pr.get_review_comments())
+        review_comments = list(pr.get_review_comments())
 
         result: list[PRReview] = []
 
         for review in reviews:
             # Get comments for this review
-            review_comments: list[ReviewComment] = []
-            for comment in comments:
+            comments_for_review: list[ReviewComment] = []
+            for comment in review_comments:
                 if comment.pull_request_review_id == review.id:
                     # Consider comment blocking if it contains certain keywords
                     body_lower = comment.body.lower()
@@ -83,7 +118,7 @@ class GitHubManager:
                         keyword in body_lower
                         for keyword in ["must", "required", "blocking", "security"]
                     )
-                    review_comments.append(
+                    comments_for_review.append(
                         ReviewComment(
                             path=comment.path,
                             line=comment.line or comment.original_line or 0,
@@ -104,7 +139,87 @@ class GitHubManager:
                     submitted_at=submitted_at,
                     user_login=review.user.login if review.user else "unknown",
                     user_type=review.user.type if review.user else "User",
-                    comments=review_comments,
+                    comments=comments_for_review,
+                )
+            )
+
+        return result
+
+    async def get_pr_comments_from_claude(self, pr_number: int) -> list[PRReview]:
+        """Get PR issue comments from Claude GitHub integration.
+
+        Claude GitHub integration posts issue comments (not formal reviews),
+        so we need to check these separately.
+        """
+        pr = self.repo.get_pull(pr_number)
+        issue_comments = list(pr.get_issue_comments())
+
+        result: list[PRReview] = []
+
+        for comment in issue_comments:
+            user_login = comment.user.login if comment.user else "unknown"
+            user_type = comment.user.type if comment.user else "User"
+
+            # Check if this is from Claude
+            is_claude = (
+                user_type == "Bot"
+                or "claude" in user_login.lower()
+                or "anthropic" in user_login.lower()
+            )
+
+            if not is_claude:
+                continue
+
+            # Parse comment to determine if it's requesting changes
+            body_lower = comment.body.lower()
+
+            # Claude comments that suggest fixes are treated as change requests
+            requests_changes = any(
+                indicator in body_lower
+                for indicator in ["fix:", "issue:", "bug:", "error:", "problem:", "should", "must", "need to"]
+            )
+
+            # Determine state based on content
+            if requests_changes:
+                state = "CHANGES_REQUESTED"
+            else:
+                state = "COMMENTED"
+
+            # Extract file path and line from comment if present
+            # Claude format: [file.py:123](url)
+            review_comments: list[ReviewComment] = []
+            file_refs = re.findall(r'\[`?([^`\]]+(?::\d+)?)`?\]', comment.body)
+            for ref in file_refs:
+                if ':' in ref:
+                    path, line_str = ref.rsplit(':', 1)
+                    try:
+                        line = int(line_str.split('-')[0])  # Handle ranges like 101-113
+                    except ValueError:
+                        line = 0
+                else:
+                    path = ref
+                    line = 0
+
+                review_comments.append(
+                    ReviewComment(
+                        path=path,
+                        line=line,
+                        body=comment.body,
+                        is_blocking=requests_changes,
+                    )
+                )
+
+            result.append(
+                PRReview(
+                    id=comment.id,
+                    state=state,
+                    body=comment.body,
+                    submitted_at=comment.created_at,
+                    user_login=user_login,
+                    user_type=user_type,
+                    comments=review_comments if review_comments else [
+                        ReviewComment(path="", line=0, body=comment.body, is_blocking=requests_changes)
+                    ],
                 )
             )
 
@@ -115,19 +230,24 @@ class GitHubManager:
         pr_number: int,
         timeout_seconds: int,
     ) -> PRReview | None:
-        """Wait for Claude GitHub integration to review."""
+        """Wait for Claude GitHub integration to review.
+
+        Checks both formal PR reviews AND issue comments, since Claude
+        GitHub integration typically posts issue comments rather than
+        formal reviews.
+        """
         start_time = datetime.now()
         poll_interval = 15  # seconds
+        seen_comment_ids: set[int] = set()
 
         self.status_manager.log(
             LogLevel.INFO,
-            f"Waiting for Claude GitHub integration review on PR #{pr_number}",
+            f"Waiting for Claude GitHub integration feedback on PR #{pr_number}",
         )
 
         while (datetime.now() - start_time).total_seconds() < timeout_seconds:
+            # Check formal PR reviews first
             reviews = await self.get_pr_reviews(pr_number)
-
-            # Look for Claude's review (usually from a bot or app)
             for review in reviews:
                 is_claude = (
                     review.user_type == "Bot"
@@ -137,10 +257,8 @@ class GitHubManager:
                 if is_claude and review.state != "PENDING":
                     self.status_manager.log(
                         LogLevel.INFO,
-                        f"Claude review received: {review.state}",
+                        f"Claude formal review received: {review.state}",
                     )
-
-                    # Map state to our enum
                     status_map = {
                         "APPROVED": ReviewStatus.APPROVED,
                         "CHANGES_REQUESTED": ReviewStatus.CHANGES_REQUESTED,
@@ -151,15 +269,34 @@ class GitHubManager:
                     )
                     return review
 
+            # Check issue comments (Claude GitHub integration uses these)
+            claude_comments = await self.get_pr_comments_from_claude(pr_number)
+            for comment in claude_comments:
+                if comment.id not in seen_comment_ids:
+                    seen_comment_ids.add(comment.id)
+                    self.status_manager.log(
+                        LogLevel.INFO,
+                        f"Claude comment received: {comment.state} from {comment.user_login}",
+                    )
+                    status_map = {
+                        "APPROVED": ReviewStatus.APPROVED,
+                        "CHANGES_REQUESTED": ReviewStatus.CHANGES_REQUESTED,
+                        "COMMENTED": ReviewStatus.COMMENTED,
+                    }
+                    await self.status_manager.set_review_status(
+                        status_map.get(comment.state, ReviewStatus.COMMENTED)
+                    )
+                    return comment
+
             self.status_manager.log(
                 LogLevel.DEBUG,
-                f"No Claude review yet, polling in {poll_interval}s...",
+                f"No Claude feedback yet, polling in {poll_interval}s...",
             )
             await asyncio.sleep(poll_interval)
 
         self.status_manager.log(
             LogLevel.WARN,
-            f"Timed out waiting for Claude review after {timeout_seconds}s",
+            f"Timed out waiting for Claude feedback after {timeout_seconds}s",
         )
         return None
 
