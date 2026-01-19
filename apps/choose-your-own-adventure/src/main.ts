@@ -4,6 +4,7 @@
 
 import './styles/main.css';
 import { api, type StoryNode, type StoryData } from './api/client';
+import { SaveManager } from './utils/SaveManager';
 
 const DEFAULT_STORY = 'dragon-adventure';
 
@@ -21,22 +22,125 @@ class App {
   }
 
   private async init(): Promise<void> {
-    // Check for node ID in URL hash
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      this.currentNodeId = hash;
-    }
+    // Check for story ID in URL query params
+    const urlParams = new URLSearchParams(window.location.search);
+    const storyId = urlParams.get('story');
 
-    // Listen for hash changes
-    window.addEventListener('hashchange', () => {
-      const newHash = window.location.hash.slice(1);
-      if (newHash && newHash !== this.currentNodeId) {
-        this.currentNodeId = newHash;
-        this.renderCurrentNode();
-      }
+    if (storyId) {
+      // Load specific story
+      await this.loadStory(storyId);
+
+      // Listen for hash changes
+      window.addEventListener('hashchange', () => {
+        const newHash = window.location.hash.slice(1);
+        if (newHash && newHash !== this.currentNodeId) {
+          this.currentNodeId = newHash;
+          this.renderCurrentNode();
+        }
+      });
+    } else {
+      // Show home page
+      this.showHomePage();
+    }
+  }
+
+  private showHomePage(): void {
+    // Check for saved games
+    const hasSave = SaveManager.hasSave(DEFAULT_STORY);
+
+    this.container.innerHTML = `
+      <div class="header">
+        <h1>🐉 Choose Your Own Adventure</h1>
+        <p>AI-Powered Interactive Stories</p>
+      </div>
+
+      <div class="story-select">
+        <div class="story-option">
+          <h3>Dragon's Cave</h3>
+          <p>Venture into a mysterious dragon's lair and navigate through dangerous encounters using your wits and courage.</p>
+          <span class="story-theme">Fantasy</span>
+          <div class="actions" style="margin-top: 1rem;">
+            ${hasSave ? `
+              <button class="btn" id="continue-btn">Continue Adventure</button>
+              <button class="btn btn-secondary" id="new-game-btn">New Adventure</button>
+            ` : `
+              <button class="btn" id="start-btn">Start Adventure</button>
+            `}
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Bind event handlers
+    const continueBtn = this.container.querySelector('#continue-btn');
+    const newGameBtn = this.container.querySelector('#new-game-btn');
+    const startBtn = this.container.querySelector('#start-btn');
+
+    continueBtn?.addEventListener('click', () => {
+      this.loadGameFromSave(DEFAULT_STORY);
     });
 
-    await this.loadStory(DEFAULT_STORY);
+    newGameBtn?.addEventListener('click', () => {
+      this.startNewGame(DEFAULT_STORY);
+    });
+
+    startBtn?.addEventListener('click', () => {
+      this.startNewGame(DEFAULT_STORY);
+    });
+  }
+
+  private async loadGameFromSave(storyId: string): Promise<void> {
+    const saveData = SaveManager.load(storyId);
+    if (!saveData) {
+      this.showToast('No saved game found');
+      this.startNewGame(storyId);
+      return;
+    }
+
+    // Update URL
+    window.location.search = `?story=${storyId}`;
+    window.location.hash = saveData.nodeId;
+
+    this.showLoading('Loading saved game...');
+
+    try {
+      this.storyData = await api.getStory(storyId);
+      this.nodesMap.clear();
+
+      for (const node of this.storyData.nodes) {
+        this.nodesMap.set(node.id, node);
+      }
+
+      // Restore saved state
+      this.history = saveData.history;
+      this.currentNodeId = saveData.nodeId;
+
+      // Listen for hash changes
+      window.addEventListener('hashchange', () => {
+        const newHash = window.location.hash.slice(1);
+        if (newHash && newHash !== this.currentNodeId) {
+          this.currentNodeId = newHash;
+          this.renderCurrentNode();
+        }
+      });
+
+      this.renderCurrentNode();
+      this.showToast('Game loaded!');
+    } catch (error) {
+      console.error('Failed to load game:', error);
+      this.showError('Failed to load saved game. Please try again.');
+    }
+  }
+
+  private async startNewGame(storyId: string): Promise<void> {
+    // Clear any existing save
+    SaveManager.deleteSave(storyId);
+
+    // Update URL
+    window.location.search = `?story=${storyId}`;
+    window.location.hash = '';
+
+    await this.loadStory(storyId);
   }
 
   private async loadStory(storyId: string): Promise<void> {
@@ -55,6 +159,15 @@ class App {
         this.history = [this.storyData.meta.startNodeId];
         this.currentNodeId = this.storyData.meta.startNodeId;
       }
+
+      // Listen for hash changes
+      window.addEventListener('hashchange', () => {
+        const newHash = window.location.hash.slice(1);
+        if (newHash && newHash !== this.currentNodeId) {
+          this.currentNodeId = newHash;
+          this.renderCurrentNode();
+        }
+      });
 
       this.renderCurrentNode();
     } catch (error) {
@@ -75,6 +188,16 @@ class App {
       return;
     }
 
+    // Auto-save progress
+    if (this.storyData) {
+      try {
+        SaveManager.save(this.storyData.meta.id, this.currentNodeId, this.history);
+      } catch (error) {
+        console.error('Failed to auto-save:', error);
+        // Don't interrupt the user experience for save failures
+      }
+    }
+
     // Update URL
     window.location.hash = node.id;
 
@@ -87,8 +210,10 @@ class App {
           </button>
         </div>
         <div class="nav-right">
+          <button class="btn btn-secondary" id="save-btn">💾 Save</button>
+          <button class="btn btn-secondary" id="load-btn">📂 Load</button>
           <button class="btn btn-secondary" id="share-btn">Share</button>
-          <button class="btn btn-secondary" id="home-btn">Restart</button>
+          <button class="btn btn-secondary" id="home-btn">Home</button>
         </div>
       </nav>
 
@@ -318,6 +443,16 @@ class App {
       }
     });
 
+    // Save button
+    this.container.querySelector('#save-btn')?.addEventListener('click', () => {
+      this.saveGame();
+    });
+
+    // Load button
+    this.container.querySelector('#load-btn')?.addEventListener('click', () => {
+      this.loadGame();
+    });
+
     // Share button
     this.container.querySelector('#share-btn')?.addEventListener('click', () => {
       this.showShareModal();
@@ -325,9 +460,10 @@ class App {
 
     // Home/Restart button
     this.container.querySelector('#home-btn')?.addEventListener('click', () => {
-      this.history = [this.storyData!.meta.startNodeId];
-      this.currentNodeId = this.storyData!.meta.startNodeId;
-      this.renderCurrentNode();
+      // Go back to home page
+      window.location.search = '';
+      window.location.hash = '';
+      window.location.reload();
     });
 
     // Branch buttons
@@ -339,6 +475,34 @@ class App {
         this.renderCurrentNode();
       });
     });
+  }
+
+  private saveGame(): void {
+    if (!this.storyData) return;
+
+    try {
+      SaveManager.save(this.storyData.meta.id, this.currentNodeId, this.history);
+      this.showToast('Game saved!');
+    } catch (error) {
+      console.error('Failed to save game:', error);
+      this.showToast('Failed to save game');
+    }
+  }
+
+  private loadGame(): void {
+    if (!this.storyData) return;
+
+    const saveData = SaveManager.load(this.storyData.meta.id);
+    if (!saveData) {
+      this.showToast('No saved game found');
+      return;
+    }
+
+    // Restore saved state
+    this.history = saveData.history;
+    this.currentNodeId = saveData.nodeId;
+    this.renderCurrentNode();
+    this.showToast('Game loaded!');
   }
 
   private showShareModal(): void {
