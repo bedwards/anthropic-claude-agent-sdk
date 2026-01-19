@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Understanding the Claude Agent SDK: From First Principles to Production</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="A comprehensive guide to building autonomous AI agents with the Claude Agent SDK, exploring architecture, philosophy, and practical implementation.">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a href="index.html">← Back to Home</a>
+    </nav>
+
+    <article>
+      <header>
+        <h1>Understanding the Claude Agent SDK: From First Principles to Production</h1>
+        <div class="meta">
+          <span class="meta-item">Reading time: 23 min</span>
+          <span class="meta-item">~5,000 words</span>
+          <span class="meta-item">Updated: January 2026</span>
+        </div>
+        <div style="margin-top: 1rem;">
+          <span class="tag">AI Agents</span>
+          <span class="tag">Claude</span>
+          <span class="tag">Anthropic</span>
+          <span class="tag">SDK</span>
+          <span class="tag">Python</span>
+          <span class="tag">TypeScript</span>
+        </div>
+      </header>
+
+      <section>
+        <p>Something fundamental changed in how we build software with artificial intelligence. The Claude Agent SDK represents a shift from treating Large Language Models as sophisticated text generators to treating them as autonomous problem solvers. This transformation matters because it changes what becomes possible. Instead of asking a model to complete a sentence or classify an email, you can now give it a goal and watch it figure out how to achieve that goal on its own.</p>
+
+        <p>To understand why this matters, consider the difference between asking someone to proofread a document versus asking them to write, research, revise, and publish an article. The first task is bounded and predictable. The second requires judgment, planning, tool use, verification, and iteration. The Claude Agent SDK makes the second kind of task possible for software.</p>
+
+        <p>This essay explores how the SDK works, why Anthropic designed it the way they did, and how to build agents that actually accomplish useful work. The goal is not to repeat documentation but to explain from first principles why things work the way they do, what trade-offs were made, and how to think about building your own agents.</p>
+      </section>
+
+      <section>
+        <h2>What Distinguishes an Agent from a Workflow</h2>
+
+        <p>The terminology around artificial intelligence applications has become muddled. People use words like agent, workflow, pipeline, and assistant interchangeably when they refer to fundamentally different things. Clarity on these distinctions makes the rest of this discussion coherent.</p>
+
+        <p>When GPT-3 emerged, most applications involved single Large Language Model features. You would send a prompt asking the model to categorize an email and receive a structured response. The model did one thing and returned one answer. This pattern proved useful for many problems: sentiment analysis, text summarization, question answering with provided context, and translation.</p>
+
+        <p>Then came workflows. A workflow chains together multiple structured steps: index code via Retrieval Augmented Generation, retrieve relevant context, generate a completion, perhaps run it through another model for verification. Workflows are predictable and deterministic. You define the steps in advance. The system follows those steps every time. Each step might use a language model, but the overall structure remains fixed.</p>
+
+        <p>Agents represent something fundamentally different. Claude Code became the canonical example of what an agent looks like in practice. When you interact with Claude Code, you speak to it in natural language and it decides its own trajectory. It reads files to understand context. It runs commands to gather information. It edits code and verifies its changes compile. It might work for ten, twenty, or thirty minutes autonomously before completing a task. You are not telling it step by step what to do. You are giving it a goal and the tools to achieve that goal.</p>
+
+        <p>The opposite of an agent is a workflow. A workflow follows your predetermined structure. An agent builds its own structure. The Agent SDK supports both patterns, but the real power lies in letting the model decide how to accomplish your objectives.</p>
+
+        <p>This distinction has practical implications. If you are building something where you know exactly what steps need to happen in what order, a workflow makes sense. If the steps depend on what you find along the way, or if different inputs require fundamentally different approaches, an agent makes sense. Most interesting problems fall into the second category.</p>
+      </section>
+
+      <section>
+        <h2>Why Anthropic Built the SDK This Way</h2>
+
+        <p>The Claude Agent SDK exists because Anthropic's engineers kept rebuilding the same components. Every time they built an internal agent, they needed tools for interacting with the file system, prompts for guiding the model, context management for long conversations, error handling for tool failures, and sandboxing for security. After rebuilding these components repeatedly, they realized everyone building agents needs this same infrastructure.</p>
+
+        <p>The SDK packages lessons learned from deploying Claude Code at scale. This is not abstract theorizing about what agent infrastructure might need. This is battle-tested code that handles edge cases discovered when millions of people use an agent daily. Tool execution errors, context window exhaustion, race conditions in parallel tool calls, security vulnerabilities in bash execution, and dozens of other problems have already been solved.</p>
+
+        <p>Anthropic made the decision to build on top of Claude Code rather than creating a separate framework. This means the SDK uses Claude Code as its runtime. When you install the SDK, you also need Claude Code installed. This might seem like unnecessary coupling, but it means you get all the improvements to Claude Code automatically. As the underlying runtime gets better, your agents get better without code changes.</p>
+
+        <p>The most controversial design decision was embracing bash as the primary tool for agent capabilities. This deserves detailed explanation because it runs counter to how most people think about building software.</p>
+      </section>
+
+      <section>
+        <h2>Bash Is All You Need</h2>
+
+        <p>When Anthropic was designing Claude Code, they faced a choice. They could create separate tools for every capability the agent might need: a search tool, a lint tool, an execute tool, a file manipulation tool, and so on. Every time they thought of a new use case, they would add another tool. This is the approach most agent frameworks take.</p>
+
+        <p>Instead, Anthropic discovered something counterintuitive. The bash tool represents perhaps the most powerful capability you can give an agent, and it obviates the need for most specialized tools.</p>
+
+        <p>Consider what bash enables. You can store the results of operations to files. You can dynamically generate scripts and call them. You can compose functionality through pipes. You can use any existing software on the system: FFmpeg for video processing, LibreOffice for document conversion, curl for API calls, jq for JSON manipulation. Claude does not need a custom grep tool because it can use grep directly. It does not need a custom package manager integration because it can run npm or pip commands.</p>
+
+        <p>This insight led to another counterintuitive principle: use code generation for non-coding tasks. When you ask Claude Code to find the weather in San Francisco and suggest what to wear, it might write a script to fetch a weather API, determine your location from your IP address, and provide recommendations. For any task involving composing APIs or doing data analysis, code generation provides remarkable flexibility.</p>
+
+        <p>Take an email agent as an example. Without bash, when a user asks how much they spent on ride sharing this week, the agent searches for Uber or Lyft emails, retrieves perhaps a hundred results, and must reason through all that text at once. With bash, the agent can save query results to files, grep for prices, add them together, and check its work by storing intermediate results with line numbers. The agent can verify its own calculations.</p>
+
+        <p>This is why the SDK requires a file system and bash capabilities. Every agent runs in an environment where it can read and write files and execute commands. This is a fundamentally different architecture than most AI frameworks provide, and it requires careful consideration of deployment. You need containers or sandbox environments because you are giving the agent real capabilities on a real computer.</p>
+
+        <p>The trade-off is complexity in deployment but simplicity in capability. Instead of implementing dozens of specialized tools and keeping them maintained, you give the agent bash and let it figure out what it needs to do. The agent can discover capabilities at runtime by running help commands. It can install missing tools if needed. It can compose existing Unix utilities in ways you never anticipated.</p>
+      </section>
+
+      <section>
+        <h2>The Agent SDK versus the Client SDK</h2>
+
+        <p>Anthropic provides two SDKs that serve different purposes, and understanding the distinction clarifies what the Agent SDK actually does.</p>
+
+        <p>The Anthropic Client SDK gives you direct API access. You send prompts and implement tool execution yourself. When the model returns a tool use request, you execute the tool, gather the result, and send another request. You manage the loop. You decide how to handle errors. You track context and decide when to summarize.</p>
+
+        <p>The Agent SDK inverts this relationship. You provide a prompt and configuration. The SDK handles the tool loop internally, including retries, error handling, context management, and compaction. Claude autonomously reads files, finds bugs, and fixes them without your manual intervention in each step.</p>
+
+        <p>With the Client SDK, you might write something like this: create a message, check if the model wants to use a tool, execute that tool yourself, send the result back, repeat until the model stops requesting tools. This requires implementing every tool, handling every error case, managing the conversation history, and deciding when the interaction is complete.</p>
+
+        <p>With the Agent SDK, you write something much simpler: create a query with a prompt and configuration, iterate through the messages as they stream back, and handle the final result. The SDK handles tool execution, retries, context management, and completion detection.</p>
+
+        <p>This distinction matters enormously for development speed. Building a capable agent with the client SDK requires implementing dozens of edge cases: handling tool execution errors, managing context windows that grow too large, coordinating parallel tool calls, handling interruptions gracefully. The Agent SDK handles these concerns because they represent lessons learned from deploying Claude Code to millions of users.</p>
+      </section>
+
+      <section>
+        <h2>The Three-Part Agent Loop</h2>
+
+        <p>Every well-designed agent follows a pattern: gather context, take action, verify the work. Understanding this pattern helps you design agents that actually accomplish their goals reliably.</p>
+
+        <p>Gathering context means finding the information needed for the task. For Claude Code, this involves searching for and reading relevant files. For an email agent, it means locating relevant messages. For a database agent, it means understanding the schema and current state of the data. This step often gets underestimated. The quality of context gathering directly determines agent performance.</p>
+
+        <p>Think about how you approach an unfamiliar codebase. You do not start editing immediately. You explore the directory structure, read key files, understand the patterns in use, and build a mental model before making changes. An agent needs to do the same thing. If you skip the context gathering phase, the agent will make poor decisions based on incomplete information.</p>
+
+        <p>Taking action means using the right tools for the job. Does the agent have code generation capabilities? Can it access bash for flexible composition? Are there specialized tools for the specific domain? The action phase depends entirely on having gathered sufficient context first.</p>
+
+        <p>Verification closes the loop. If you can programmatically verify the agent's work, you have an excellent candidate for automation. Code can be linted and executed. Tests can be run. Research can cite sources. Spreadsheets can be validated for formula errors. The agents closest to being generally capable are those with strong verification steps.</p>
+
+        <p>This leads to a practical heuristic for deciding what to automate. Ask yourself: how can I verify this work? If verification is possible and precise, the task is a good candidate for an agent. If verification is subjective or impossible, you need human review in the loop.</p>
+
+        <p>A planning step might fit between gathering context and taking action, helping the agent think step by step. Plans add latency, so they represent a trade-off. The SDK supports planning through permission modes and the AskUserQuestion tool, letting Claude clarify requirements before proceeding when appropriate.</p>
+      </section>
+
+      <section>
+        <h2>Tools versus Bash versus Code Generation</h2>
+
+        <p>The SDK gives you three ways to accomplish tasks, each with distinct trade-offs.</p>
+
+        <p>Traditional tools are extremely structured and reliable. When you need the fastest output with minimal errors and retries, tools excel. A Write tool writes a file. A Read tool reads a file. The operations are atomic and predictable. However, tools consume significant context. Anyone who has built an agent with fifty or a hundred tools knows the model gets confused trying to choose among them. Tools also lack composability since you cannot chain them together dynamically.</p>
+
+        <p>Bash provides composability through scripts with relatively low context usage. The agent might need discovery time to figure out what it can do, perhaps running help commands to understand available options. This progressive disclosure trades some latency for reduced context consumption. The agent does not need to know about every capability upfront. It can discover capabilities as needed.</p>
+
+        <p>Code generation offers the highest composability with dynamic scripts. These take the longest to execute since they might need interpretation or compilation. API design becomes crucial because the agent will compose your APIs in unexpected ways. If your API is poorly designed, the generated code will inherit those problems.</p>
+
+        <p>When should you use each approach? Use tools for atomic actions requiring strong guarantees, like writing files that need user approval or sending emails that cannot be unsent. Use bash for composable actions like searching folders, running git commands, or maintaining memory through the file system. Use code generation for highly dynamic logic, composing multiple APIs, data analysis, or deep research where the exact approach cannot be predetermined.</p>
+
+        <p>Most real agents use all three approaches in combination. The built-in tools handle precise operations like file editing where you want guarantees. Bash handles discovery and composition. Code generation handles complex analysis and transformation.</p>
+      </section>
+
+      <section>
+        <h2>The TypeScript SDK in Detail</h2>
+
+        <p>The TypeScript SDK centers on a function called query that returns an object extending AsyncGenerator with additional methods for controlling execution. You call query with a prompt and options, then iterate through the messages as they stream back.</p>
+
+        <p>Configuration happens through an options object with many properties. The allowedTools property specifies which built-in tools the agent can use: Read, Write, Edit, Bash, Glob, Grep, WebSearch, WebFetch, and others. The systemPrompt property provides instructions. The mcpServers property connects external tools through the Model Context Protocol. The permissionMode property controls what requires human approval.</p>
+
+        <p>Message types flow through the generator including assistant messages with Claude's reasoning, user messages representing inputs and tool results, partial streaming messages for real-time display, compact boundaries when conversation history gets summarized, and the final result message containing cost and usage information.</p>
+
+        <p>The permission system evaluates requests through multiple layers. Hooks run first and can allow, deny, or continue to the next layer. Permission rules check deny rules, then allow rules, then ask rules. The active permission mode applies its defaults. Finally, if nothing has resolved the request, a canUseTool callback handles it. This layered approach provides defense in depth.</p>
+
+        <p>The Query object returned by query has additional methods beyond iteration. You can call interrupt to stop Claude mid-execution during streaming. You can call rewindFiles to restore files to a previous state when checkpointing is enabled. You can call setPermissionMode to change permissions during execution. You can query available models and commands.</p>
+
+        <p>A preview version called TypeScript V2 simplifies multi-turn conversations. Instead of managing generator state across turns, each turn becomes a separate send and stream cycle. Create a session, send a message, stream the response. To continue the conversation, call send again on the same session. Claude remembers previous turns automatically. This makes interactive applications dramatically simpler to build.</p>
+      </section>
+
+      <section>
+        <h2>The Python SDK in Detail</h2>
+
+        <p>The Python SDK offers two interfaces: query for creating a new session with each interaction, and ClaudeSDKClient for maintaining conversations across multiple exchanges.</p>
+
+        <p>The query function suits one-off questions, independent tasks, and simple automation scripts. Each call starts fresh with no memory of previous interactions. You provide a prompt and options, then iterate through messages using async for. When you need conversation continuity or more control, ClaudeSDKClient provides those capabilities.</p>
+
+        <p>ClaudeSDKClient maintains session continuity, supports interrupts, enables hooks and custom tools, and allows response-driven logic where your next action depends on Claude's response. You connect with an initial prompt, call query to send messages, and iterate through receive_response to get messages until completion. The interrupt method stops Claude mid-execution when using streaming mode.</p>
+
+        <p>The client operates as an async context manager. You can use it with async with for automatic connection management. When iterating over messages, avoid using break to exit early as this can cause asyncio cleanup issues. Let the iteration complete naturally or use flags to track when you have found what you need.</p>
+
+        <p>Both interfaces support the same configuration options: allowed tools, system prompts, MCP servers, permission modes, working directories, environment variables, hooks, and subagent definitions. The choice between them depends on whether you need conversation continuity and fine-grained control.</p>
+      </section>
+
+      <section>
+        <h2>Sessions and Continuity</h2>
+
+        <p>The SDK creates sessions automatically and returns a session ID in the initial system message. Capture this ID to resume sessions later. Resuming loads conversation history and context automatically, letting Claude continue exactly where it left off.</p>
+
+        <p>This enables several important patterns. Long-running workflows can persist across application restarts. Users can return to previous conversations and continue them. Agents can be interrupted and resumed without losing progress.</p>
+
+        <p>Forking creates a new session branch from an existing point. This proves useful for exploring different approaches from the same starting point, testing changes without affecting original history, or maintaining separate conversation paths for experiments. Think of it like branching in git: you can try something, see the results, and go back to the branch point if needed.</p>
+
+        <p>File checkpointing tracks modifications made through Write, Edit, and NotebookEdit tools during a session. You can rewind files to any previous state. Enable checkpointing in your options, capture checkpoint UUIDs from user messages, then call rewindFiles when needed. This restores files on disk to their state at that checkpoint. Created files get deleted, modified files restore to their previous content.</p>
+
+        <p>Changes made through bash commands are not tracked since only the built-in file tools participate in checkpointing. If you need full reversibility, prefer the built-in tools for file operations.</p>
+      </section>
+
+      <section>
+        <h2>Permissions: Defense in Depth</h2>
+
+        <p>The permission system provides layered control over tool usage. This matters enormously because you are giving an agent real capabilities on a real computer.</p>
+
+        <p>Permission modes set global behavior. Default mode requires your canUseTool callback to handle unmatched tools. AcceptEdits auto-approves file operations while still prompting for other actions. BypassPermissions runs everything without prompts, which should only be used in controlled environments like continuous integration pipelines. Plan mode prevents tool execution entirely, letting Claude analyze and plan without making changes.</p>
+
+        <p>When Claude requests a tool, the SDK checks multiple layers in order. Hooks run first and can allow, deny, or continue. Permission rules from settings files check deny rules, then allow rules, then ask rules. The active permission mode applies its defaults. Finally, if nothing resolved the request, your canUseTool callback handles it.</p>
+
+        <p>The canUseTool callback receives the tool name, input parameters, and context. Return an allow result with potentially modified input, or a deny result with a message explaining why. The callback must return within sixty seconds or Claude assumes denial. This timeout prevents indefinite hangs when waiting for human approval.</p>
+
+        <p>Anthropic calls this the Swiss cheese defense. Each layer has holes, but the layers are arranged so no single path goes straight through. Model alignment training makes Claude unlikely to attempt harmful actions. The harness adds permissioning and prompting. A bash parser determines fairly reliably what commands actually do. Sandboxing provides the final layer: even if an agent somehow gets compromised, sandboxing limits what it can actually do.</p>
+
+        <p>Network sandboxing prevents exfiltration. File system sandboxing prevents access outside the working directory. Container sandboxing isolates from the host system. This is not something you want to build yourself, and the SDK handles it for you.</p>
+      </section>
+
+      <section>
+        <h2>Hooks: Intercepting Agent Behavior</h2>
+
+        <p>Hooks let you run custom code at key execution points: before and after tool calls, when users submit prompts, when sessions start or end, before conversation compaction, and when permission requests arise.</p>
+
+        <p>Each hook has two parts: the callback function containing your logic, and the configuration telling the SDK which event to hook into and which tools to match. A matcher pattern can target specific tools by name or pattern.</p>
+
+        <p>PreToolUse hooks run before tool execution and can block dangerous operations. You might check if a bash command contains dangerous patterns and deny it before execution. PostToolUse hooks run after execution for logging and auditing. UserPromptSubmit hooks can inject additional context or modify prompts. Stop hooks save session state before exit. PreCompact hooks archive full transcripts before summarization.</p>
+
+        <p>Hooks chain in array order. If you have a rate limiter, an authorization check, an input sanitizer, and a logger, they run in that order. If any hook returns deny, the operation blocks regardless of what other hooks would return.</p>
+
+        <p>This pattern enables sophisticated control over agent behavior without modifying the core SDK. You can add organization-specific security policies, audit logging, cost controls, and custom validation logic all through hooks.</p>
+      </section>
+
+      <section>
+        <h2>Subagents: Parallel and Specialized Work</h2>
+
+        <p>Subagents are separate agent instances your main agent spawns for focused subtasks. They isolate context, run analyses in parallel, and apply specialized instructions without bloating the main prompt.</p>
+
+        <p>Define subagents programmatically with the agents parameter. Each definition includes a description explaining when to use it, a prompt defining behavior, optional tool restrictions, and an optional model override. Claude decides when to invoke subagents based on descriptions, so write clear descriptions so Claude matches tasks appropriately.</p>
+
+        <p>Context isolation means specialized tasks do not pollute the main conversation with irrelevant details. A research subagent can explore dozens of files and return only relevant findings. The main agent receives a summary rather than every detail of the exploration. This keeps the main context focused on high-level reasoning.</p>
+
+        <p>Parallelization means multiple subagents run concurrently. During code review, a style checker, security scanner, and test coverage analyzer can run simultaneously. The results return to the main agent which synthesizes them into a coherent response.</p>
+
+        <p>Subagents cannot spawn their own subagents. This prevents infinite recursion and keeps the execution structure manageable. If you need deeper nesting, restructure your approach to use coordination between peer subagents rather than hierarchical spawning.</p>
+      </section>
+
+      <section>
+        <h2>Model Context Protocol Integration</h2>
+
+        <p>The Model Context Protocol is an open standard for connecting agents to external tools and data sources. With MCP, your agent can query databases, integrate with Slack and GitHub, connect to browser automation, and access hundreds of other services without writing custom tool implementations.</p>
+
+        <p>MCP servers can run as local stdio processes, connect over HTTP or Server-Sent Events, or execute directly within your SDK application. The SDK supports all three modes.</p>
+
+        <p>Configure servers in the mcpServers option. Tools follow the naming pattern mcp__servername__toolname. Grant access with allowedTools using wildcards like mcp__github__* for all tools from a server.</p>
+
+        <p>Tool search activates automatically when MCP tool descriptions would consume more than ten percent of the context window. Instead of preloading all tools, Claude uses a search tool to discover relevant MCP tools on demand. This keeps context usage manageable even when connecting to servers with many tools.</p>
+
+        <p>Custom tools extend Claude with your own functionality through in-process MCP servers. Define type-safe tools with name, description, input schema, and handler function. The handler receives validated arguments and returns content blocks. This approach provides better performance than external servers since there is no interprocess communication overhead.</p>
+      </section>
+
+      <section>
+        <h2>Structured Outputs</h2>
+
+        <p>Agents return free-form text by default, which works for chat but fails when you need programmatic use of the output. Structured outputs let you define the exact shape of data you want back using JSON Schema.</p>
+
+        <p>Define your schema, pass it via the outputFormat option, and the SDK guarantees the final result matches. For full type safety, use Zod in TypeScript or Pydantic in Python to define schemas and get strongly-typed objects back.</p>
+
+        <p>The agent can use any tools needed to complete the task. It might search the web, read files, run commands. You still get validated JSON at the end. When the result message arrives, check the subtype field: success means valid output, error_max_structured_output_retries means the agent could not produce valid output after multiple attempts.</p>
+
+        <p>This enables building agents into larger systems. An agent that analyzes code can return a structured report that feeds into a dashboard. An agent that researches competitors can return data that populates a spreadsheet. The integration becomes programmatic rather than requiring human interpretation of text.</p>
+      </section>
+
+      <section>
+        <h2>Hosting and Deployment</h2>
+
+        <p>The SDK differs from traditional stateless Large Language Model APIs because it maintains conversational state and executes commands in a persistent environment. Deployment requires container-based sandboxing for process isolation, resource limits, network control, and ephemeral filesystems.</p>
+
+        <p>Each instance needs Python 3.10+ or Node.js 18+, the Claude Code CLI, approximately one gigabyte of RAM, five gigabytes of disk, and outbound HTTPS access to api.anthropic.com. These are not large requirements by modern standards, but they differ from typical serverless function constraints.</p>
+
+        <p>Ephemeral sessions create a new container per user task, then destroy it upon completion. This suits one-off tasks like bug investigation, invoice processing, or document translation. Each task gets a clean environment with no state leakage between users or tasks.</p>
+
+        <p>Long-running sessions maintain persistent container instances. This suits proactive agents, site builders, or chatbots handling continuous message streams. The container persists between interactions, maintaining file system state and conversation context.</p>
+
+        <p>Hybrid sessions use ephemeral containers hydrated with history and state from databases or session resumption features. This suits intermittent interaction patterns like project management, deep research, or customer support spanning multiple interactions over time. You get the isolation benefits of ephemeral containers with the continuity benefits of persistent sessions.</p>
+
+        <p>Single containers running multiple Agent SDK processes suit agents that must collaborate closely. This is the least common pattern because you must prevent agents from overwriting each other's work. Use it when the collaboration benefits outweigh the complexity.</p>
+      </section>
+
+      <section>
+        <h2>The Design Process</h2>
+
+        <p>When designing an agent, Anthropic recommends thinking through three questions for each capability: What is the best way to search or gather context? What is the best way to take action? What is the best way to verify the work?</p>
+
+        <p>Consider a spreadsheet agent. For searching, you might convert to CSV and grep, use AWK for tabular queries, translate to SQLite for SQL queries, search with range syntax like B3:B5 that the model knows well, or search XML since XLSX files are XML internally. Each approach has different trade-offs for accuracy, speed, and the agent's familiarity with the format.</p>
+
+        <p>For taking action, you might insert two-dimensional arrays, execute SQL queries, or edit XML directly. The gathering context and taking action APIs often share structure. If you query with SQL, you probably modify with SQL. If you navigate with range syntax, you probably edit with range syntax.</p>
+
+        <p>For verification, check for null pointers, validate formulas, ensure row counts match expectations. Insert deterministic rules wherever possible. Anytime you can verify programmatically, you improve reliability.</p>
+
+        <p>Read transcripts repeatedly. Every time you see the agent running, examine what it does and why. Figure out how to help it. This intuition-building process reveals what your specific domain requires. The agent will do things you did not anticipate. Watch, learn, and adjust.</p>
+
+        <p>One of the key insights from Anthropic's internal work is that context engineering extends beyond prompts. The file system becomes memory. Scripts become reusable tools. Files become context that the agent can search and reference. Skills are really just folders the agent can navigate and read, containing detailed instructions and examples.</p>
+
+        <p>Long outputs should go to files rather than staying in context. The agent can then grep across results, check work, and maintain references without polluting the conversation with enormous outputs. Memory can live in a memories folder where the agent writes insights for future reference. This simple approach leverages the file system rather than requiring specialized memory infrastructure.</p>
+      </section>
+
+      <section>
+        <h2>Migration and Naming</h2>
+
+        <p>The SDK was renamed from Claude Code SDK to Claude Agent SDK, reflecting its broader capabilities beyond coding. Package names changed accordingly. This matters when reading older documentation or examples that reference the previous names.</p>
+
+        <p>Two breaking changes require attention when migrating from older versions. The system prompt no longer defaults to Claude Code's prompt, so you must explicitly request it if needed. Settings sources no longer load automatically, ensuring SDK applications have predictable behavior independent of local filesystem configurations. This matters for continuous integration environments, deployed applications, and multi-tenant systems where settings leakage between users would cause problems.</p>
+
+        <p>If you want the Claude Code behavior, you can request it explicitly by using the preset system prompt option. This gives you the full Claude Code system prompt with all its capabilities. If you want a minimal agent that does exactly what you specify, omit the system prompt and provide your own instructions.</p>
+      </section>
+
+      <section>
+        <h2>Direct Links to Documentation</h2>
+
+        <div class="links-grid">
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/overview">SDK Overview</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/quickstart">Quickstart Guide</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/typescript">TypeScript SDK Reference</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/typescript-v2-preview">TypeScript V2 Preview</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/python">Python SDK Reference</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/migration-guide">Migration Guide</a></div>
+        </div>
+
+        <h3>Guides</h3>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/streaming-vs-single-mode">Streaming vs Single Mode</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/permissions">Configure Permissions</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/user-input">Handle Approvals and User Input</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/hooks">Hooks</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/sessions">Sessions</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/file-checkpointing">File Checkpointing</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/structured-outputs">Structured Outputs</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/hosting">Hosting</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/secure-deployment">Secure Deployment</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/modifying-system-prompts">Modifying System Prompts</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/mcp">MCP Integration</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/custom-tools">Custom Tools</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/subagents">Subagents</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/slash-commands">Slash Commands</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/skills">Skills</a></div>
+          <div class="link-item"><a href="https://platform.claude.com/docs/en/agent-sdk/cost-tracking">Cost Tracking</a></div>
+        </div>
+
+        <h3>Additional Resources</h3>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://github.com/anthropics/claude-agent-sdk-python">Python SDK on GitHub</a></div>
+          <div class="link-item"><a href="https://www.npmjs.com/package/@anthropic-ai/claude-agent-sdk">TypeScript SDK on npm</a></div>
+          <div class="link-item"><a href="https://github.com/anthropics/claude-agent-sdk-demos">Example Agents</a></div>
+          <div class="link-item"><a href="https://www.anthropic.com/engineering/building-agents-with-the-claude-agent-sdk">Building Agents with the SDK (Anthropic Blog)</a></div>
+          <div class="link-item"><a href="https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents">Effective Harnesses for Long-Running Agents</a></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>The Future: Simple but Not Easy</h2>
+
+        <p>Building an agent should be simple. Your final agent should be simple. But simple is not the same as easy.</p>
+
+        <p>Start with Claude Code directly. Give it scripts, libraries, and context files. Ask it to accomplish tasks. Watch what it does. Iterate on the prompts, tools, and verification steps. Build something that feels good locally before moving to production.</p>
+
+        <p>The amount of code in your agent should not be huge. It does not need to be extremely complex. But it needs to be elegant. It needs to be what the model wants. That interesting insight about turning a spreadsheet into SQL queries comes from reading transcripts and understanding how Claude naturally approaches problems.</p>
+
+        <p>Simple at the end, but the process of discovering what works requires exploration. The Agent SDK handles the orchestration so you can focus on the domain-specific challenges: designing agentic search interfaces, creating appropriate guardrails, and building verification steps that catch errors before they compound.</p>
+
+        <p>The models improve continuously. Rethink and rewrite agent code every six months because assumptions get baked in that no longer apply. We can write code ten times faster now with these tools. We should throw out code ten times faster as well. For startups, this represents your largest advantage over larger companies with long incubation cycles. Build for the capabilities that exist today.</p>
+
+        <p>The Claude Agent SDK represents a new way of building software. Not software that generates text, but software that accomplishes goals. The infrastructure exists. The tools are available. The question is no longer whether autonomous agents are possible but what you will build with them.</p>
+      </section>
+    </article>
+
+    <footer>
+      <p>This documentation site was created to accompany the Claude Agent SDK. For official documentation, visit <a href="https://platform.claude.com/docs/en/agent-sdk/overview">Anthropic's documentation</a>.</p>
+    </footer>
+  </div>
+</body>
+</html>
