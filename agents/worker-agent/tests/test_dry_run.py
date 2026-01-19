@@ -240,7 +240,9 @@ class TestDryRunGitHubManager:
             body="Test body",
         )
 
+        assert isinstance(pr_info["number"], int)
         assert pr_info["number"] > 0
+        assert isinstance(pr_info["url"], str)
         assert "github.com" in pr_info["url"]
         assert "pull" in pr_info["url"]
 
@@ -346,45 +348,47 @@ class TestDryRunAgent:
         agent = WorkerAgent(dry_run_config, issue_number=1)
 
         # Initialize the agent
-        with patch.object(agent, "_implement_feature", new_callable=AsyncMock) as mock_impl:
-            with patch.object(agent, "_validate", new_callable=AsyncMock) as mock_val:
-                with patch.object(agent, "_create_pr", new_callable=AsyncMock) as mock_pr:
-                    mock_impl.return_value = True
-                    mock_val.return_value = True
-                    mock_pr.return_value = {"number": 1, "url": "http://test"}
+        with (
+            patch.object(agent, "_implement_feature", new_callable=AsyncMock) as mock_impl,
+            patch.object(agent, "_validate", new_callable=AsyncMock) as mock_val,
+            patch.object(agent, "_create_pr", new_callable=AsyncMock) as mock_pr,
+        ):
+            mock_impl.return_value = True
+            mock_val.return_value = True
+            mock_pr.return_value = {"number": 1, "url": "http://test"}
 
-                    # Start but don't complete the full lifecycle
-                    # Just verify the managers are initialized correctly
-                    try:
-                        # Run initialization only
-                        branch = f"worker/issue-{agent.issue_number}"
-                        worktree_path = dry_run_config.worktree_base_dir / f"issue-{agent.issue_number}"
+            # Start but don't complete the full lifecycle
+            # Just verify the managers are initialized correctly
+            try:
+                # Run initialization only
+                branch = f"worker/issue-{agent.issue_number}"
+                worktree_path = dry_run_config.worktree_base_dir / f"issue-{agent.issue_number}"
 
-                        agent.status_manager = StatusManager(
-                            dry_run_config,
-                            agent.issue_number,
-                            branch,
-                            str(worktree_path),
-                        )
-                        await agent.status_manager.initialize()
+                agent.status_manager = StatusManager(
+                    dry_run_config,
+                    agent.issue_number,
+                    branch,
+                    str(worktree_path),
+                )
+                await agent.status_manager.initialize()
 
-                        # Initialize managers
-                        if dry_run_config.dry_run:
-                            agent.git_manager = DryRunGitManager(
-                                dry_run_config.base_dir,
-                                dry_run_config.worktree_base_dir,
-                                agent.issue_number,
-                                agent.status_manager,
-                            )
-                            agent.github_manager = DryRunGitHubManager(
-                                dry_run_config, agent.status_manager
-                            )
+                # Initialize managers
+                if dry_run_config.dry_run:
+                    agent.git_manager = DryRunGitManager(
+                        dry_run_config.base_dir,
+                        dry_run_config.worktree_base_dir,
+                        agent.issue_number,
+                        agent.status_manager,
+                    )
+                    agent.github_manager = DryRunGitHubManager(
+                        dry_run_config, agent.status_manager
+                    )
 
-                        # Verify managers are dry-run versions
-                        assert isinstance(agent.git_manager, DryRunGitManager)
-                        assert isinstance(agent.github_manager, DryRunGitHubManager)
-                    except Exception:
-                        pass  # Expected since we're not running the full lifecycle
+                # Verify managers are dry-run versions
+                assert isinstance(agent.git_manager, DryRunGitManager)
+                assert isinstance(agent.github_manager, DryRunGitHubManager)
+            except Exception:
+                pass  # Expected since we're not running the full lifecycle
 
     @pytest.mark.asyncio
     async def test_agent_uses_normal_managers(self, normal_config: WorkerConfig) -> None:
