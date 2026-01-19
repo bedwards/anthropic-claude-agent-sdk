@@ -10,6 +10,7 @@ const DEFAULT_STORY = 'dragon-adventure';
 class App {
   private container: HTMLElement;
   private storyData: StoryData | null = null;
+  private currentStoryId: string | null = null;
   private currentNodeId: string = 'start';
   private history: string[] = [];
   private nodesMap: Map<string, StoryNode> = new Map();
@@ -21,22 +22,99 @@ class App {
   }
 
   private async init(): Promise<void> {
-    // Check for node ID in URL hash
-    const hash = window.location.hash.slice(1);
-    if (hash) {
-      this.currentNodeId = hash;
-    }
-
     // Listen for hash changes
     window.addEventListener('hashchange', () => {
-      const newHash = window.location.hash.slice(1);
-      if (newHash && newHash !== this.currentNodeId) {
-        this.currentNodeId = newHash;
-        this.renderCurrentNode();
-      }
+      this.handleRoute();
     });
 
-    await this.loadStory(DEFAULT_STORY);
+    // Initial route
+    await this.handleRoute();
+  }
+
+  private async handleRoute(): Promise<void> {
+    const hash = window.location.hash.slice(1);
+
+    // Home page or no hash
+    if (!hash || hash === 'home') {
+      await this.showHomePage();
+      return;
+    }
+
+    // Parse storyId/nodeId format
+    const parts = hash.split('/');
+    if (parts.length === 2) {
+      const [storyId, nodeId] = parts;
+
+      // Load story if different from current
+      if (storyId !== this.currentStoryId) {
+        this.currentStoryId = storyId;
+        await this.loadStory(storyId);
+      }
+
+      // Navigate to specific node
+      if (nodeId && nodeId !== this.currentNodeId) {
+        this.currentNodeId = nodeId;
+        await this.renderCurrentNode();
+      }
+      return;
+    }
+
+    // Legacy format - just node ID, use default story
+    if (hash && this.currentStoryId === null) {
+      this.currentStoryId = DEFAULT_STORY;
+      this.currentNodeId = hash;
+      await this.loadStory(DEFAULT_STORY);
+    }
+  }
+
+  private async showHomePage(): Promise<void> {
+    this.showLoading('Loading stories...');
+
+    try {
+      const stories = await api.getStories();
+
+      this.container.innerHTML = `
+        <div class="header">
+          <h1>Choose Your Own Adventure</h1>
+          <p>Select a story to begin your journey</p>
+        </div>
+
+        <div class="story-grid">
+          ${stories.map(story => `
+            <div class="story-card-preview" data-story-id="${story.id}">
+              <h3>${this.escapeHtml(story.title)}</h3>
+              <p class="story-description">${this.escapeHtml(story.description)}</p>
+              <div class="story-card-footer">
+                <span class="story-theme">${this.escapeHtml(story.theme)}</span>
+                <button class="btn btn-play">Play →</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+
+      // Bind story card clicks
+      this.container.querySelectorAll('.story-card-preview').forEach(card => {
+        const storyId = (card as HTMLElement).dataset.storyId!;
+
+        card.addEventListener('click', (e) => {
+          // Don't navigate if clicking the play button (it has its own handler)
+          if ((e.target as HTMLElement).classList.contains('btn-play')) {
+            return;
+          }
+          window.location.hash = `${storyId}/start`;
+        });
+
+        // Also bind the play button specifically
+        const playBtn = card.querySelector('.btn-play');
+        playBtn?.addEventListener('click', () => {
+          window.location.hash = `${storyId}/start`;
+        });
+      });
+    } catch (error) {
+      console.error('Failed to load stories:', error);
+      this.showError('Failed to load stories. Please try again.');
+    }
   }
 
   private async loadStory(storyId: string): Promise<void> {
@@ -75,8 +153,8 @@ class App {
       return;
     }
 
-    // Update URL
-    window.location.hash = node.id;
+    // Update URL with storyId/nodeId format
+    window.location.hash = `${this.currentStoryId}/${node.id}`;
 
     // Render the node
     this.container.innerHTML = `
@@ -88,7 +166,7 @@ class App {
         </div>
         <div class="nav-right">
           <button class="btn btn-secondary" id="share-btn">Share</button>
-          <button class="btn btn-secondary" id="home-btn">Restart</button>
+          <button class="btn btn-secondary" id="home-btn">Home</button>
         </div>
       </nav>
 
@@ -323,11 +401,9 @@ class App {
       this.showShareModal();
     });
 
-    // Home/Restart button
+    // Home button - go to story selection
     this.container.querySelector('#home-btn')?.addEventListener('click', () => {
-      this.history = [this.storyData!.meta.startNodeId];
-      this.currentNodeId = this.storyData!.meta.startNodeId;
-      this.renderCurrentNode();
+      window.location.hash = 'home';
     });
 
     // Branch buttons
