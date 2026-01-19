@@ -5,12 +5,12 @@ Calculate word counts and reading times for documentation files.
 Uses standard reading speed of 200-250 words per minute for technical content.
 """
 
+import json
 import os
 import re
-import json
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 
 def count_words_in_text(text: str) -> int:
@@ -56,7 +56,7 @@ def estimate_reading_time(word_count: int, wpm: int = 220) -> dict:
 
 def analyze_file(filepath: str) -> dict:
     """Analyze a single file for word count and reading time."""
-    with open(filepath, 'r', encoding='utf-8') as f:
+    with open(filepath, encoding='utf-8') as f:
         content = f.read()
 
     word_count = count_words_in_text(content)

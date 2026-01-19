@@ -1,5 +1,7 @@
 import asyncio
-from claude_agent_sdk import query, ClaudeAgentOptions
+
+from claude_agent_sdk import ClaudeAgentOptions, query
+
 
 async def main():
     async for message in query(
