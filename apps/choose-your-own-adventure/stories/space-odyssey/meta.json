@@ -1,0 +1,8 @@
+{
+  "id": "space-odyssey",
+  "title": "Space Odyssey",
+  "description": "Navigate the dangers of deep space as captain of a colony ship",
+  "theme": "sci-fi",
+  "startNodeId": "start",
+  "createdAt": 1737312100000
+}
