@@ -109,7 +109,7 @@ class Manager:
                 )
                 self.console.print(f"  Worker spawned with PID {worker.pid}")
             else:
-                self.console.print(f"  [red]Failed to spawn worker[/red]")
+                self.console.print("  [red]Failed to spawn worker[/red]")
 
     async def _monitor_workers(self) -> None:
         """Monitor workers and handle state changes."""

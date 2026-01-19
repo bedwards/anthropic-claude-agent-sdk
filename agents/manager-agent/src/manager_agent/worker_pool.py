@@ -13,7 +13,6 @@ from pathlib import Path
 
 from .models import (
     IssueInfo,
-    IssueStatus,
     ManagerConfig,
     WorkerInfo,
     WorkerState,
@@ -40,7 +39,7 @@ class WorkerPool:
             if status_file.exists():
                 with open(status_file) as f:
                     return json.load(f)
-        except (json.JSONDecodeError, IOError):
+        except (OSError, json.JSONDecodeError):
             pass
         return None
 

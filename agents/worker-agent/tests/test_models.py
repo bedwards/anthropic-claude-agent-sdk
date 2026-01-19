@@ -1,6 +1,5 @@
 """Tests for worker agent models."""
 
-import pytest
 from worker_agent.models import (
     LogEntry,
     LogLevel,

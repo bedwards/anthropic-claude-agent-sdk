@@ -3,7 +3,6 @@ GitHub issue monitoring for manager agent.
 Watches for new issues and tracks their state.
 """
 
-import asyncio
 from datetime import datetime
 
 from github import Github
