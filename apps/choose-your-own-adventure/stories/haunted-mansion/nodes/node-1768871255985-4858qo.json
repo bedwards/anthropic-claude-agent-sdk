@@ -4,7 +4,9 @@
   "content": "As you ventured down the narrow corridor, the whispers intensified, weaving a spell of curiosity and intrigue. The air was thick with the scent of old parchment and leather-bound tomes, and the creaking of the shelves seemed to harmonize with the whispers, creating an eerie melody. You ran your fingers over the spines of the books, feeling the raised letters and intricate illustrations that adorned the covers. The whispers seemed to emanate from a particular section, where a row of books was stacked haphazardly, their pages fluttering like restless spirits.\n\nYou gently pushed aside the books, revealing a hidden compartment behind the shelf. A small, leather-bound journal lay within, adorned with strange symbols and markings that seemed to pulse with a soft, otherworldly light. The whispers grew silent, as if the journal was the source of the secrets you sought. You opened the cover, revealing pages filled with cryptic notes and sketches, hinting at a long-forgotten family secret that only the journal could reveal.",
   "tagline": "The whispers grow louder, revealing hidden truths.",
   "parentNodeId": "node-1768871181361-klxade",
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768871459567-bcva3j"
+  ],
   "generatedOptions": [],
   "chosenOption": "Investigate the whispers in the book-lined corridor",
   "createdAt": 1768871271377
