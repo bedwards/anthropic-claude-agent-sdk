@@ -4,7 +4,9 @@
   "content": "Rain hammers against the windshield as you pull up to Blackwood Manor. The Victorian mansion looms against the stormy sky, its windows dark and unwelcoming. You inherited this place from a distant relative you never knew existed.\n\nYour lawyer's words echo in your mind: \"Just sign the papers inside and the house is yours. But I'd advise you to sell it immediately. No one has lived there in decades.\"\n\nLightning illuminates the manor's twisted architecture. The front door creaks open, as if inviting you in.",
   "tagline": "Your inheritance awaits in the darkness",
   "parentNodeId": null,
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768871181361-klxade"
+  ],
   "generatedOptions": [],
   "chosenOption": null,
   "createdAt": 1737312200000
