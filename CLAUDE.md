@@ -11,22 +11,37 @@ Documentation website for the Claude Agent SDK, hosted on GitHub Pages from the 
 │   ├── index.html       # Landing page
 │   ├── essay.html       # Main essay (~5,000 words)
 │   ├── worker-agent.html # Worker agent essay (~3,500 words)
+│   ├── multi-model-animation.html # Multi-model animation essay
 │   ├── styles.css       # Stylesheet
 │   └── .nojekyll        # Disables Jekyll processing
 ├── docs-for-claude/      # Knowledge base for Claude sessions
 │   ├── INDEX.md         # Section index with line numbers (read first)
 │   └── claude-agent-sdk-knowledge.md  # Full knowledge base (~660 lines)
 ├── agents/
-│   └── worker-agent/    # Autonomous worker agent implementation
-│       ├── pyproject.toml
-│       ├── src/worker_agent/
-│       │   ├── models.py          # Pydantic models
-│       │   ├── status_manager.py  # Logging and status persistence
-│       │   ├── git_manager.py     # Git worktree operations
-│       │   ├── github_manager.py  # GitHub API operations
-│       │   ├── agent.py           # Main orchestration
-│       │   └── cli.py             # Command-line interface
-│       └── tests/
+│   ├── shared/          # Shared library for worker agents
+│   │   └── src/worker_shared/
+│   │       ├── base_models.py     # Common Pydantic models
+│   │       ├── base_status.py     # Generic status manager
+│   │       ├── git_ops.py         # Git worktree operations
+│   │       └── github_ops.py      # GitHub API operations
+│   ├── worker-agent/    # PR lifecycle worker agent
+│   │   └── src/worker_agent/
+│   │       ├── models.py, status_manager.py, git_manager.py
+│   │       ├── github_manager.py, agent.py, cli.py
+│   │       └── tests/
+│   └── animation-worker/ # Animation creation worker agent
+│       └── src/animation_worker/
+│           ├── models.py          # Animation-specific models
+│           ├── status_manager.py  # Animation status management
+│           ├── agent.py           # Animation workflow
+│           └── cli.py             # Animation CLI
+├── apps/
+│   └── roblox-animation/ # Animation tools with Gemini integration
+│       └── src/animation_tools/
+│           ├── create_animation.py  # Blender animation creation
+│           ├── render_frames.py     # Frame rendering
+│           ├── analyze_animation.py # Gemini vision analysis
+│           └── orchestrator.py      # Workflow orchestration
 ├── scripts/
 │   └── calculate_reading_time.py  # Word count and reading time utility
 ├── raw-docs-source/     # Source material (not published)
@@ -198,6 +213,54 @@ Key behaviors:
 - Should check if PR exists before creating (handle 422)
 - Need better error recovery on failures
 - Cleanup on crash/interrupt incomplete
+
+## Animation Worker Agent
+
+The `agents/animation-worker/` directory contains an autonomous worker agent for creating Roblox animations using Claude Agent SDK with Gemini vision analysis.
+
+### Key Principle
+
+**Gemini's verdict is authoritative.** Claude orchestrates the workflow and generates animation code, but Gemini determines when the animation meets quality standards. Claude should not second-guess Gemini's "done" or "needs_work" verdicts.
+
+### Animation Workflow
+
+1. Read animation requirements from GitHub issue
+2. Use Claude to generate Blender Python animation code
+3. Run Blender headlessly to create .blend file
+4. Render animation frames to PNG
+5. Analyze frames with Gemini vision (provides verdict)
+6. If "needs_work", iterate with Gemini's feedback
+7. Export final animation to Roblox format using anim2rbx
+
+### Animation Worker Usage
+
+```bash
+cd agents/animation-worker
+uv sync
+animation-worker run 68 --repo owner/repo    # Run for issue #68
+animation-worker status 68                    # Check status
+animation-worker list-workers                 # List all workers
+```
+
+Environment variables:
+- `GITHUB_TOKEN`: Required for GitHub API access
+- `GEMINI_API_KEY`: Required for Gemini vision analysis
+- `DYLD_LIBRARY_PATH`: Set to `/usr/local/opt/assimp@5/lib` for anim2rbx
+
+### Animation Tools
+
+The `apps/roblox-animation/src/animation_tools/` provides:
+- `create_animation`: Generate Blender animation from Python code
+- `render_frames`: Render animation to PNG frames
+- `analyze_animation`: Gemini vision analysis with done/needs_work verdict
+
+## Multi-Model Agent Architecture
+
+This project demonstrates multi-model agents where Claude and Gemini collaborate:
+- **Claude**: Orchestrates workflow, generates code, makes decisions
+- **Gemini**: Provides authoritative vision analysis verdicts
+
+This pattern keeps Claude as the "brain" while leveraging Gemini's visual capabilities for tasks like animation quality assessment.
 
 ## Claude Agent SDK Lessons Learned (War Stories)
 
