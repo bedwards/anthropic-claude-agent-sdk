@@ -7,6 +7,9 @@
 
 set -euo pipefail
 
+# Set library path for anim2rbx (assimp@5 is keg-only)
+export DYLD_LIBRARY_PATH="/usr/local/opt/assimp@5/lib:${DYLD_LIBRARY_PATH:-}"
+
 INPUT_DIR="${1:?Usage: $0 input_dir/ output_dir/}"
 OUTPUT_DIR="${2:?Usage: $0 input_dir/ output_dir/}"
 
