@@ -4,7 +4,9 @@
   "content": "As you concentrate on the carvings, the air grows heavier, like a thick fog rolling in from the forest. The whispers of ancient wisdom grow louder, a gentle murmur that tickles the edges of your ears. The leaves and vines begin to glow with a soft, ethereal light, as if infused with an otherworldly energy. You feel the weight of centuries of knowledge bearing down upon you, the cumulative wisdom of the forest distilled into this single, intricate pattern.\n\nWith a quiet thrill, you decipher the code, the hidden message unfolding like a tapestry of forgotten lore. The words dance across your mind, a mystical language that speaks directly to your soul. You sense the power of Pyraxis coursing through the crossbow, a concentrated essence of the forest's ancient wisdom. As the message fades, the air clears, leaving behind a faint scent of sandalwood and a hint of mystery. The crossbow's secrets are revealed, but at what cost?",
   "tagline": "The secrets of the crossbow are revealed, but at what cost?",
   "parentNodeId": "node-1768870746946-c7dey0",
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768870936495-p3nlse"
+  ],
   "generatedOptions": [],
   "chosenOption": "Decode the hidden message in the carvings' intricate dance",
   "createdAt": 1768870851148
