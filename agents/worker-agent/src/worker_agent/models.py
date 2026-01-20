@@ -1,13 +1,45 @@
 """
 Pydantic models for worker agent state and configuration.
+
+Imports common models from worker_shared and defines PR-worker specific models.
 """
 
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any
 
 from pydantic import BaseModel, Field
+
+# Import shared models
+from worker_shared import (
+    CIStatus,
+    LogEntry,
+    LogLevel,
+    ManagerNotification,
+    NotificationType,
+    PRReview,
+    ReviewComment,
+    ReviewStatus,
+)
+
+# Re-export shared models for backwards compatibility
+__all__ = [
+    # Shared models (re-exported)
+    "CIStatus",
+    "LogEntry",
+    "LogLevel",
+    "ManagerNotification",
+    "NotificationType",
+    "PRReview",
+    "ReviewComment",
+    "ReviewStatus",
+    # Worker-specific models
+    "WorkerPhase",
+    "WorkerStatus",
+    "WorkerConfig",
+    "ValidationStep",
+    "ValidationResult",
+]
 
 
 class WorkerPhase(str, Enum):
@@ -26,40 +58,6 @@ class WorkerPhase(str, Enum):
     COMPLETED = "completed"
     FAILED = "failed"
     BLOCKED = "blocked"
-
-
-class ReviewStatus(str, Enum):
-    """Status of PR review."""
-
-    PENDING = "pending"
-    APPROVED = "approved"
-    CHANGES_REQUESTED = "changes_requested"
-    COMMENTED = "commented"
-
-
-class CIStatus(str, Enum):
-    """Status of CI checks."""
-
-    PENDING = "pending"
-    SUCCESS = "success"
-    FAILURE = "failure"
-
-
-class LogLevel(str, Enum):
-    """Log level for worker logs."""
-
-    DEBUG = "debug"
-    INFO = "info"
-    WARN = "warn"
-    ERROR = "error"
-
-
-class LogEntry(BaseModel):
-    """Single log entry."""
-
-    timestamp: datetime = Field(default_factory=datetime.now)
-    level: LogLevel
-    message: str
 
 
 class WorkerStatus(BaseModel):
@@ -114,50 +112,6 @@ class WorkerConfig(BaseModel):
 
     # Communication channel for manager
     manager_notification_file: Path | None = None
-
-
-class NotificationType(str, Enum):
-    """Type of notification to manager."""
-
-    STATUS_UPDATE = "status_update"
-    PERMISSION_REQUEST = "permission_request"
-    BLOCKED = "blocked"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    MAIN_BRANCH_FAILED = "main_branch_failed"
-
-
-class ManagerNotification(BaseModel):
-    """Message to manager (written to notification file)."""
-
-    worker_pid: int
-    issue_number: int
-    notification_type: NotificationType
-    message: str
-    requires_response: bool
-    timestamp: datetime = Field(default_factory=datetime.now)
-    metadata: dict[str, Any] = Field(default_factory=dict)
-
-
-class ReviewComment(BaseModel):
-    """A comment from a PR review."""
-
-    path: str
-    line: int
-    body: str
-    is_blocking: bool = False
-
-
-class PRReview(BaseModel):
-    """GitHub PR review from Claude integration."""
-
-    id: int
-    state: str  # APPROVED, CHANGES_REQUESTED, COMMENTED, PENDING
-    body: str
-    submitted_at: datetime | None = None
-    user_login: str
-    user_type: str
-    comments: list[ReviewComment] = Field(default_factory=list)
 
 
 class ValidationStep(str, Enum):

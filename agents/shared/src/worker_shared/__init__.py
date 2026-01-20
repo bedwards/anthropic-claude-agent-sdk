@@ -11,10 +11,14 @@ This library provides common functionality for different types of worker agents:
 from .base_models import (
     BaseWorkerConfig,
     BaseWorkerStatus,
+    CIStatus,
     LogEntry,
     LogLevel,
     ManagerNotification,
     NotificationType,
+    PRReview,
+    ReviewComment,
+    ReviewStatus,
 )
 from .base_status import BaseStatusManager
 from .git_ops import GitOperations
@@ -23,10 +27,14 @@ from .github_ops import GitHubOperations
 __all__ = [
     "BaseWorkerConfig",
     "BaseWorkerStatus",
+    "CIStatus",
     "LogEntry",
     "LogLevel",
     "ManagerNotification",
     "NotificationType",
+    "PRReview",
+    "ReviewComment",
+    "ReviewStatus",
     "BaseStatusManager",
     "GitOperations",
     "GitHubOperations",
