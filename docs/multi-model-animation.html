@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Model Agents: Integrating Gemini Vision with Claude for Animation</title>
+  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="A practical guide to building agents that combine Claude's orchestration with Gemini's vision capabilities, demonstrated through a Roblox NPC animation workflow.">
+</head>
+<body>
+  <div class="container">
+    <nav>
+      <a href="index.html">← Back to Home</a>
+    </nav>
+
+    <article>
+      <header>
+        <h1>Multi-Model Agents: Integrating Gemini Vision with Claude for Animation</h1>
+        <div class="meta">
+          <span class="meta-item">Reading time: 18 min</span>
+          <span class="meta-item">~3,900 words</span>
+          <span class="meta-item">Updated: January 2026</span>
+        </div>
+        <div style="margin-top: 1rem;">
+          <span class="tag">Multi-Model</span>
+          <span class="tag">Gemini</span>
+          <span class="tag">Vision</span>
+          <span class="tag">Animation</span>
+          <span class="tag">Roblox</span>
+          <span class="tag">MCP</span>
+        </div>
+      </header>
+
+      <section>
+        <p>The previous essays explored the Claude Agent SDK in isolation: what it is, how it works, and how to build a worker agent that manages pull requests. This essay takes a different direction. We will build an agent that combines multiple AI models, using Claude for orchestration and reasoning while delegating visual analysis to Google's Gemini. The context is game development, specifically creating animations for non-player characters in Roblox, but the pattern applies broadly to any task where different models have complementary strengths.</p>
+
+        <p>Why would you want multiple models in a single agent? The short answer is specialization. Large language models are not uniformly capable across all tasks. Claude excels at reasoning, code generation, and following complex instructions. Gemini excels at understanding images and video. By combining them, you get an agent that can do things neither model could do alone: write animation code, render frames, analyze those frames visually, identify problems, and iterate until the animation looks right.</p>
+
+        <p>This is not a theoretical exercise. The tools described here are implemented and available. By the end of this essay, you will understand how to integrate external models into Claude agents, why command-line workflows matter for AI automation, and how the specific domain of game animation illustrates broader principles about building capable agents.</p>
+      </section>
+
+      <section>
+        <h2>The Case for Multi-Model Agents</h2>
+
+        <p>When Anthropic describes Claude Code and the Agent SDK, the focus is naturally on Claude. But the architecture is more flexible than it might first appear. The Model Context Protocol, or MCP, provides a standardized way to connect agents to external tools and data sources. Those tools can include other AI models.</p>
+
+        <p>Consider what happens when you ask an agent to improve an animation. The agent needs to understand what makes an animation good or bad. It needs to identify specific frames where problems occur. It needs to describe those problems precisely enough to guide fixes. This is fundamentally a visual task. You cannot evaluate an animation by reading its source code. You must watch it.</p>
+
+        <p>Claude can reason about animation in the abstract. It knows that walk cycles should have proper weight transfer, that feet should not slide on the ground, that arm swings should counterbalance leg movements. But Claude cannot see. It cannot look at a rendered frame and say "the left knee hyperextends at frame 24." For that, you need a vision model.</p>
+
+        <p>Gemini 3, released in late 2025, represents the current state of the art for multimodal understanding. It was designed from the start to process images, video, and text together. Its video understanding goes beyond simple recognition to actual reasoning about motion, causation, and temporal relationships. When analyzing an animation, Gemini can trace cause and effect over time: this hip rotation causes that weight shift which produces this unnatural hitch in the step.</p>
+
+        <p>The combination is powerful. Claude orchestrates the overall workflow: reading requirements, generating animation code, invoking rendering, coordinating analysis, implementing fixes. Gemini provides the eyes: examining frames, identifying visual problems, describing what needs to change. Each model does what it does best.</p>
+      </section>
+
+      <section>
+        <h2>Why Game Animation and Why Roblox</h2>
+
+        <p>Animation might seem like an unusual domain for demonstrating AI agent capabilities. Most examples involve code, documents, or data analysis. But animation is particularly well-suited to illustrating multi-model integration for several reasons.</p>
+
+        <p>First, animation has objective quality criteria. An animation is not just aesthetically pleasing or displeasing. It has technical properties that can be evaluated: feet contact the ground at appropriate times, joints do not exceed their range of motion, motion is smooth without pops or hitches, timing matches the intended rhythm. These criteria can be expressed precisely and verified visually.</p>
+
+        <p>Second, animation creation involves multiple distinct phases that map well to different AI capabilities. There is the authoring phase where keyframes are created. There is the rendering phase where frames are generated. There is the evaluation phase where results are analyzed. There is the iteration phase where problems are fixed. An agent can coordinate all these phases while delegating appropriately.</p>
+
+        <p>Third, modern animation tools support command-line workflows. This matters enormously for AI agents. An agent that can only work through graphical user interfaces is limited. An agent that can invoke command-line tools has access to the full power of the underlying software.</p>
+
+        <p>Roblox specifically presents an interesting case study. It is one of the largest gaming platforms in the world, with millions of developers creating experiences. Most Roblox developers are not professional animators. They need tools that can help them create quality animations without deep expertise. At the same time, Roblox's architecture imposes specific constraints that make the problem tractable.</p>
+
+        <p>The platform uses a character rig called R15, which has fifteen parts connected by joints. Every humanoid character in Roblox follows this structure. This standardization means an agent that understands R15 can work on any Roblox character animation. The constraints become enabling rather than limiting.</p>
+      </section>
+
+      <section>
+        <h2>The Command-Line Imperative</h2>
+
+        <p>A recurring theme in Claude Agent SDK documentation is the power of bash and command-line tools. This principle applies directly to animation workflows. The question is whether the tools involved can be driven from the command line or require human interaction through graphical interfaces.</p>
+
+        <p>Roblox Studio, the primary development environment for Roblox, includes an Animation Editor. This editor is powerful but entirely graphical. You position keyframes by clicking and dragging. You adjust bone rotations by manipulating handles in a viewport. You preview animations by pressing play buttons. There is no command-line interface. There is no scripting API for creating animation keyframes programmatically.</p>
+
+        <p>This poses a problem for automation. An AI agent cannot click buttons or drag handles. If animation creation requires the Animation Editor, human involvement is unavoidable.</p>
+
+        <p>Blender offers a different approach. Blender is a professional open-source three-dimensional content creation suite. It handles modeling, animation, rendering, and much more. Critically, Blender has a complete Python API. Every operation you can perform through the graphical interface can also be performed through Python code. Blender also supports a headless mode where it runs without displaying any interface at all.</p>
+
+        <p>This combination enables fully automated animation workflows. An agent can write a Python script that creates keyframes, adjusts bone rotations, sets interpolation curves, and exports the result. The agent invokes Blender in headless mode with that script. Blender executes the script and produces an animation file. No human interaction required.</p>
+
+        <p>The trade-off is pipeline complexity. Instead of creating animations directly in Roblox Studio, you create them in Blender and then import them. This requires converting between formats, ensuring bone hierarchies match, and validating that the imported animation behaves correctly. But the benefit is automation. An agent can iterate on an animation dozens of times in minutes, something that would take hours of manual work in a graphical editor.</p>
+      </section>
+
+      <section>
+        <h2>The Animation Pipeline</h2>
+
+        <p>The complete pipeline involves several stages, each with its own tools and considerations.</p>
+
+        <p>Animation authoring happens in Blender. The agent writes Python scripts that create or modify animations. These scripts use the bpy module, which is Blender's Python API. The scripts specify bone positions and rotations at specific frames, define interpolation between keyframes, and configure animation properties like frame rate and length. Because Blender runs in headless mode, the agent can invoke it as a command-line tool.</p>
+
+        <p>Format conversion translates the animation into Roblox's format. Blender exports animations as FBX files, a common interchange format for three-dimensional content. A tool called anim2rbx, written in Rust, converts these FBX files into Roblox KeyframeSequence objects saved as rbxm files. This conversion is also entirely command-line driven.</p>
+
+        <p>Frame rendering produces images for visual analysis. The agent needs to see what the animation looks like. Blender can render frames to image files, again through Python scripts invoked in headless mode. The agent specifies which frames to render, at what resolution, and where to save the results.</p>
+
+        <p>Visual analysis uses Gemini to evaluate the rendered frames. The agent sends images to Gemini with prompts asking for specific kinds of analysis: check for joint hyperextension, evaluate weight transfer, identify frames where feet do not contact the ground properly. Gemini returns detailed descriptions of problems found, including specific frame numbers and descriptions of what looks wrong.</p>
+
+        <p>Iteration closes the loop. Based on Gemini's analysis, Claude modifies the animation scripts, re-renders, and re-analyzes. This cycle continues until the animation meets quality criteria or the agent exhausts its iteration budget.</p>
+
+        <p>Development integration uses Rojo to synchronize the animation files into Roblox Studio. Rojo is a tool that bridges the gap between professional development workflows and Roblox Studio. It watches directories on the file system and synchronizes changes into Studio in real time. Animation files saved as rbxm can be placed in Rojo-watched directories and automatically appear in Studio.</p>
+      </section>
+
+      <section>
+        <h2>Integrating Gemini Through MCP</h2>
+
+        <p>The Model Context Protocol provides the mechanism for adding Gemini capabilities to a Claude agent. MCP defines a standard interface for tools that agents can use. By implementing Gemini analysis as an MCP tool, we make it available to Claude in a way that feels native to the Agent SDK.</p>
+
+        <p>The simplest approach is creating custom tools that wrap Gemini API calls. The Claude Agent SDK supports in-process MCP servers, which means your custom tools run in the same process as the agent without requiring external servers. You define a tool with a name, description, input schema, and handler function. The handler receives validated arguments and returns content that the agent can use.</p>
+
+        <p>For animation analysis, we need at least two tools. The first analyzes a single image. This is useful for checking individual frames or reviewing renders of specific poses. The tool takes an image path and a prompt describing what to analyze. It sends the image to Gemini, which returns a detailed analysis.</p>
+
+        <p>The second tool analyzes sequences of frames. Animation is fundamentally temporal; problems often involve relationships between frames rather than issues in any single frame. A foot might contact the ground correctly in frame 12 but slide unnaturally through frames 13 to 18. Detecting this requires seeing the sequence.</p>
+
+        <p>Gemini 3 supports analyzing up to 3,600 images in a single request, which is more than enough for typical animation sequences. The tool can sample frames at a configurable rate, balancing thoroughness against token cost. For a 60-frame animation, you might analyze every frame. For a longer animation, you might sample every third or fifth frame.</p>
+
+        <p>The prompts sent to Gemini matter significantly. A vague prompt like "analyze this animation" produces vague results. A specific prompt that names the criteria produces specific, actionable feedback. The prompt might ask Gemini to check for proper ground contact, natural joint angles, smooth interpolation between poses, correct timing of weight shifts, and appropriate follow-through on movements. Each criterion gives Gemini a specific thing to look for.</p>
+
+        <p>Token costs are manageable for animation work. Gemini 3 Flash, the faster and cheaper model variant, charges fifty cents per million input tokens. A high-resolution image uses around 280 tokens. Analyzing a 60-frame animation at high resolution costs roughly seventeen cents. This is far cheaper than professional animation review services and fast enough for iterative workflows.</p>
+      </section>
+
+      <section>
+        <h2>Terrain Adaptation at Runtime</h2>
+
+        <p>A subtle but important aspect of animating non-player characters is terrain adaptation. When a character walks across uneven ground, their feet need to contact the actual terrain surface, not some imaginary flat plane at the character's base height. If the terrain rises, the character's legs should compress. If the terrain falls away, the legs should extend.</p>
+
+        <p>This cannot be baked into pre-authored animations. The animation is created once but plays on arbitrary terrain that is unknown at authoring time. The solution is to separate the base animation from the terrain adaptation.</p>
+
+        <p>The base animation provides the rhythm and movement pattern: the timing of steps, the swing of arms, the bob of the torso. This is what gets created in Blender and analyzed with Gemini. The base animation assumes flat ground.</p>
+
+        <p>Terrain adaptation happens at runtime through inverse kinematics, or IK. Roblox provides an IKControl system that can procedurally adjust bone positions based on target positions. For each foot, the agent creates an IK control that targets the actual ground position determined by raycasting from the foot downward. The IK system then adjusts the leg bones so the foot reaches that target.</p>
+
+        <p>This division of responsibility has important implications for the agent's work. The agent focuses on creating good base animations with proper timing and natural movement. It does not need to consider terrain because terrain handling is a separate system. The Gemini analysis similarly focuses on the qualities that can be evaluated from the animation itself: smoothness, timing, joint angles, weight transfer. Ground contact is evaluated against the assumed flat ground of the base animation.</p>
+
+        <p>The Roblox scripts that implement IK terrain adaptation are themselves something the agent can generate. The agent understands how IKControl works, can write Luau code that creates the appropriate controls, and can configure raycasting parameters for optimal performance. This code generation is Claude's strength; evaluating whether the resulting motion looks natural is Gemini's strength.</p>
+      </section>
+
+      <section>
+        <h2>The Development Workflow</h2>
+
+        <p>Professional Roblox development increasingly uses external tools and version control rather than working exclusively in Roblox Studio. Rojo enables this by synchronizing file system directories with Studio's data model. Changes made to files on disk appear in Studio automatically. Changes made in Studio can be extracted back to files.</p>
+
+        <p>For animation development with an AI agent, this workflow is essential. The agent works with files: Python scripts, FBX exports, rbxm model files. These files live in a git repository alongside the rest of the game's code. The agent can commit changes, create branches, and follow the same pull request workflow described in the worker agent essay.</p>
+
+        <p>A typical project structure places animation-related files in a dedicated directory. Source animations as Blender files live in one subdirectory. Exported rbxm files live in another subdirectory that Rojo watches. Rendered frames for analysis might go in a temporary directory that gets cleaned up after each iteration cycle.</p>
+
+        <p>The agent's workflow mirrors human development practices. Read the requirements for a new animation. Create a branch for the work. Write initial animation scripts in Blender. Export and convert to Roblox format. Render frames and analyze with Gemini. Iterate until quality criteria are met. Commit the final animation. Create a pull request. The worker agent pattern from the previous essay applies directly; the difference is that the implementation phase includes visual analysis that requires Gemini.</p>
+
+        <p>Testing animations requires actually seeing them in context. The Rojo workflow enables this by letting you run the game in Studio while the agent works on animations in the background. When the agent saves a new version of an animation file, Rojo synchronizes it into Studio, and you can immediately see how it looks in the actual game environment. This tight feedback loop accelerates development even when a human is involved in final approval.</p>
+      </section>
+
+      <section>
+        <h2>What Gemini Sees</h2>
+
+        <p>Understanding how Gemini processes animation frames helps in designing effective analysis prompts. Gemini 3 was explicitly optimized for temporal understanding. It can process video at up to ten frames per second when high temporal resolution is needed, capturing rapid details that slower sampling would miss.</p>
+
+        <p>For animation analysis, the relevant capabilities include recognizing body parts and their positions, understanding joint angles and whether they are within natural ranges, tracking motion between frames to identify discontinuities, assessing timing by how motion is distributed across the sequence, and comparing against expectations for specific types of movement like walking or running.</p>
+
+        <p>Gemini's analysis goes beyond simple recognition to reasoning. It does not just identify that an arm is raised. It can recognize that the arm raise feels unnatural because the shoulder rotation is missing the expected follow-through, or because the timing is too uniform when it should have acceleration and deceleration.</p>
+
+        <p>The quality of analysis depends heavily on how questions are framed. Asking "is this animation good?" produces subjective and often unhelpful responses. Asking "does the character's weight appear to shift from the back foot to the front foot during frames 15 through 20, and if not, describe what appears to happen instead" produces specific, actionable feedback.</p>
+
+        <p>Building a library of effective analysis prompts is part of developing an animation agent. Different animation types need different analyses. A walk cycle needs ground contact checks and weight transfer evaluation. An attack animation needs evaluation of anticipation, action, and follow-through phases. A idle animation needs checks for subtle motion that prevents the character from looking frozen while avoiding motion that looks nervous or twitchy.</p>
+      </section>
+
+      <section>
+        <h2>Implementation Details</h2>
+
+        <p>The actual implementation uses Python for the Gemini integration tools. The google-genai package provides the official Python client for Gemini's API. Images are loaded as bytes and sent with the analysis prompt. Responses come back as text that the agent can parse and act upon.</p>
+
+        <p>For single image analysis, the tool reads an image file from disk, determines its MIME type from the file extension, constructs a prompt that combines the user's analysis request with context about what kind of image this is, sends the request to Gemini, and returns the response text. Error handling covers common cases like missing files, unsupported formats, and API failures.</p>
+
+        <p>For frame sequence analysis, the tool is more complex. It lists image files in a directory, sorts them by name to ensure correct temporal ordering, samples frames according to configuration, constructs a prompt that includes context about the animation's frame rate and what frames are being shown, sends all the images together in a single request, and returns the comprehensive analysis.</p>
+
+        <p>The choice between Gemini 3 Pro and Gemini 3 Flash involves trade-offs. Pro is more capable, particularly for complex reasoning about motion and causation. Flash is faster and cheaper. For iteration during development, Flash provides good enough analysis at lower cost. For final quality checks before committing an animation, Pro provides more thorough analysis. The tools support both models through configuration.</p>
+
+        <p>Shell scripts wrap the complete pipeline for convenience. A single command can take a Blender file, export it, convert it, render frames, analyze them, and report results. This makes the pipeline accessible both to the agent, which can invoke it through bash, and to human developers who want to run it manually.</p>
+      </section>
+
+      <section>
+        <h2>Broader Applications</h2>
+
+        <p>The pattern demonstrated here, Claude orchestrating while delegating visual analysis to Gemini, applies to many domains beyond animation.</p>
+
+        <p>User interface development benefits from visual analysis. An agent can generate UI code, render screenshots, and use Gemini to evaluate whether the result matches design specifications. Does the button have the correct padding? Is the text properly aligned? Are the colors consistent with the design system? These are visual questions that require seeing the rendered interface.</p>
+
+        <p>Data visualization follows the same pattern. An agent can generate charts and graphs, render them to images, and use Gemini to evaluate whether they effectively communicate the intended information. Is the scale appropriate? Are labels readable? Does the visualization mislead through poor design choices?</p>
+
+        <p>Document layout, image processing, video editing, three-dimensional modeling—anywhere visual output needs to be evaluated programmatically, the multi-model pattern provides a solution. Claude handles the logic and generation. Gemini provides the eyes.</p>
+
+        <p>The MCP integration approach keeps these tools modular. You can add Gemini analysis tools to any Claude agent without changing the agent's core structure. The agent sees new tools available and uses them when appropriate. You can also replace Gemini with other vision models as capabilities evolve. The integration point is standardized; the specific model behind it can change.</p>
+      </section>
+
+      <section>
+        <h2>Limitations and Considerations</h2>
+
+        <p>This approach has limitations worth understanding.</p>
+
+        <p>Visual analysis adds latency and cost. Each Gemini call takes time and consumes tokens. For rapid iteration on simple changes, the analysis overhead might not be justified. The agent should be intelligent about when to invoke analysis, perhaps skipping it for small adjustments and running it for major changes.</p>
+
+        <p>Gemini's analysis, while good, is not perfect. It can miss subtle problems that a trained animator would catch. It can also flag issues that are not actually problems, particularly when the animation intentionally violates realistic movement for stylistic effect. Human review remains valuable for final quality assurance.</p>
+
+        <p>The Blender-to-Roblox pipeline introduces its own complexity. Bone naming must match exactly. Export settings must be configured correctly. Animation scale and timing must be preserved through conversion. Each of these is a potential failure point that the agent must handle gracefully.</p>
+
+        <p>Publishing animations to Roblox still requires the graphical interface. The rbxm files that Rojo synchronizes work for development and testing. But to get a permanent animation asset ID that can be used in published games, you must use the Animation Editor's publish function in Studio. This is the one step in the workflow that cannot be automated with current tools.</p>
+
+        <p>For development workflows, this limitation is manageable. Most iteration happens during development, where Rojo synchronization works fine. Publishing is a final step that happens once per animation. But it does mean the agent cannot handle the complete lifecycle without human involvement for that final publish action.</p>
+      </section>
+
+      <section>
+        <h2>The Larger Picture</h2>
+
+        <p>Stepping back, what does this animation workflow reveal about building AI agents more generally?</p>
+
+        <p>First, it demonstrates that agents can work with any software that supports command-line interfaces. Blender is a complex professional tool with decades of development behind it. But because it has a Python API and headless mode, an AI agent can use it as easily as a human uses simple shell commands. The same principle applies to other professional software: video editors with scripting support, CAD systems with automation APIs, scientific computing tools with command-line interfaces.</p>
+
+        <p>Second, it shows that multi-model agents are practical today. The infrastructure exists. MCP provides the integration standard. The Gemini API provides vision capabilities. The Claude Agent SDK provides orchestration. Combining them requires some implementation work but no fundamental innovation.</p>
+
+        <p>Third, it illustrates the value of the agent loop: gather context, take action, verify. The verification step, powered by Gemini analysis, is what makes this workflow capable. Without verification, the agent would create animations blindly and have no way to know whether they are any good. With verification, the agent can iterate toward quality.</p>
+
+        <p>Finally, it suggests a design principle: identify where different models excel and structure your agent to leverage those differences. Claude excels at understanding requirements, generating code, and orchestrating complex workflows. Gemini excels at understanding visual content. An agent that uses both, appropriately, accomplishes more than an agent that tries to do everything with a single model.</p>
+
+        <p>The tools are available. The patterns are established. What remains is applying them to your specific domain, finding the places where multi-model agents can do things that neither model could do alone, and building the integration that makes it work. Animation is one example. Your domain will suggest others.</p>
+      </section>
+
+      <section>
+        <h2>Source Code and Tools</h2>
+
+        <p>The implementation described in this essay is available in the <code>apps/roblox-animation</code> directory of this repository. It includes:</p>
+
+        <div class="links-grid">
+          <div class="link-item"><code>src/gemini_analyzer/single_image.py</code> - Single image analysis tool</div>
+          <div class="link-item"><code>src/gemini_analyzer/frame_sequence.py</code> - Frame sequence analysis tool</div>
+          <div class="link-item"><code>src/blender_scripts/export_animation.py</code> - Blender export automation</div>
+          <div class="link-item"><code>src/blender_scripts/render_frames.py</code> - Frame rendering for analysis</div>
+          <div class="link-item"><code>scripts/full_pipeline.sh</code> - Complete pipeline automation</div>
+        </div>
+
+        <h3>External Tools</h3>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://www.blender.org/">Blender</a> - 3D content creation with Python API</div>
+          <div class="link-item"><a href="https://github.com/jiwonz/anim2rbx">anim2rbx</a> - FBX to Roblox KeyframeSequence converter</div>
+          <div class="link-item"><a href="https://github.com/lune-org/lune">Lune</a> - Standalone Luau runtime for scripting</div>
+          <div class="link-item"><a href="https://rojo.space/">Rojo</a> - Roblox development sync tool</div>
+        </div>
+
+        <h3>Documentation</h3>
+        <div class="links-grid">
+          <div class="link-item"><a href="https://ai.google.dev/gemini-api/docs/image-understanding">Gemini Image Understanding</a></div>
+          <div class="link-item"><a href="https://ai.google.dev/gemini-api/docs/video-understanding">Gemini Video Understanding</a></div>
+          <div class="link-item"><a href="https://create.roblox.com/docs/reference/engine/classes/IKControl">Roblox IKControl Reference</a></div>
+          <div class="link-item"><a href="https://create.roblox.com/docs/reference/engine/classes/KeyframeSequence">Roblox KeyframeSequence Reference</a></div>
+        </div>
+      </section>
+    </article>
+
+    <footer>
+      <p>This documentation site accompanies the Claude Agent SDK. For official documentation, visit <a href="https://platform.claude.com/docs/en/agent-sdk/overview">Anthropic's documentation</a>.</p>
+    </footer>
+  </div>
+</body>
+</html>
