@@ -4,7 +4,9 @@
   "content": "The creaking door groaned shut behind you, enveloping you in a musty silence. Water droplets on the stone floor glistened like tiny jewels, reflecting the faint light that seeped through the grimy windows. The air was heavy with the scent of decay and forgotten memories. You stood in the foyer, surrounded by cobweb-shrouded portraits and dusty antiques, their once-luxurious fabrics now worn and faded.\n\nAs you ventured deeper, the silence was broken by the faint whisper of rustling papers. You followed the sound to a nearby room, where a door creaked open, revealing a narrow corridor lined with shelves stacked haphazardly with old books and dusty trunks. The whispers grew louder, tantalizing you with secrets and mysteries hidden within the manor's ancient walls. You felt an inexplicable pull, as if the manor itself was beckoning you to explore its secrets, to uncover the truth about your inheritance and the family that once lived within these walls.",
   "tagline": "As you step inside, the manor's secrets begin to unfold.",
   "parentNodeId": "start",
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768871255985-4858qo"
+  ],
   "generatedOptions": [],
   "chosenOption": "Step inside the creaking doorway to explore the musty hallways",
   "createdAt": 1768871197689
