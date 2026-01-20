@@ -4,7 +4,9 @@
   "content": "As you leaned in closer to the journal's cover, the soft, pulsing light seemed to intensify, as if the ancient symbols were alive and waiting to be deciphered. You gently traced the intricate patterns with your index finger, feeling the raised ridges and grooves beneath your touch. The air around you grew heavier, thick with anticipation, as if the secrets within the journal were slowly awakening.\n\nWith each passing moment, the symbols began to take on a new significance, transforming from mere decorative flourishes to a complex code waiting to be cracked. You noticed a subtle pattern emerging, a sequence of symbols that seemed to repeat themselves in a specific order. As you followed the sequence, the light emanating from the symbols grew brighter, illuminating the surrounding air with an ethereal glow.\n\nThe whispers, which had fallen silent, began to stir once more, this time taking on a gentle, whispery quality, as if the secrets within the journal were urging you to continue deciphering the code. With each new symbol you uncovered, the whispers grew louder, more insistent, drawing you deeper into the mystery. The room seemed to shrink, the shadows deepening, as if the very fabric of reality was bending to reveal the secrets hidden within the journal's ancient code.",
   "tagline": "As you decipher the symbols, the secrets within begin to stir.",
   "parentNodeId": "node-1768871255985-4858qo",
-  "childNodeIds": [],
+  "childNodeIds": [
+    "node-1768871568611-0qz14n"
+  ],
   "generatedOptions": [],
   "chosenOption": "Decipher the ancient symbols etched on the journal's cover",
   "createdAt": 1768871479297
