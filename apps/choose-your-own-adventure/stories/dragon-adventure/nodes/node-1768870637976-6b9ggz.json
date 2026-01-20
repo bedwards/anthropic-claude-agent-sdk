@@ -1,0 +1,11 @@
+{
+  "id": "node-1768870637976-6b9ggz",
+  "title": "The Village Blacksmith's Gift",
+  "content": "The village blacksmith, a stout man with a bushy beard, greets you with a hearty welcome. His forge, a warm and cozy haven from the chilly morning air, fills with the sweet scent of hot metal and sweat. \"Ah, you're off to tackle the dragon's lair, eh?\" he says, his eyes twinkling with a mix of curiosity and concern. \"Well, I've got just the thing for you.\"\n\nHe leads you to a corner of his workshop, where a beautifully crafted crossbow hangs from a wooden rack. The blacksmith hands you the weapon, its wooden stock adorned with intricate carvings of leaves and vines. \"This is a fine piece of craftsmanship,\" he says. \"I've made it with the sturdiest woods and the finest steel. It'll serve you well against the dragon's scales.\"\n\nAs you take the crossbow, the blacksmith leans in, his voice taking on a serious tone. \"Remember, Pyraxis is no ordinary beast. He values wisdom above all else. If you want to claim the treasure, you'll need to use your wits as much as your brawn. May the road rise up to meet you, and may your aim be true.\"",
+  "tagline": "You acquire a trusty crossbow and some sage advice.",
+  "parentNodeId": "start",
+  "childNodeIds": [],
+  "generatedOptions": [],
+  "chosenOption": "Find a crossbow",
+  "createdAt": 1768870657075
+}
