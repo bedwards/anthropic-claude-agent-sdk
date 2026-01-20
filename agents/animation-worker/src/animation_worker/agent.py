@@ -64,9 +64,12 @@ class AnimationWorkerAgent:
         await self.status_manager.initialize()
 
         try:
-            # Phase 1: Initialize
+            # Phase 1: Initialize - use per-issue output directory
             await self.status_manager.set_phase(AnimationPhase.INITIALIZING)
-            self.config.output_dir.mkdir(parents=True, exist_ok=True)
+            issue_output_dir = self.config.output_dir / f"issue-{self.issue_number}"
+            issue_output_dir.mkdir(parents=True, exist_ok=True)
+            # Override config output_dir for this run
+            self.config.output_dir = issue_output_dir
 
             # Phase 2: Read requirements from GitHub issue
             await self.status_manager.set_phase(AnimationPhase.READING_REQUIREMENTS)
